@@ -30,7 +30,7 @@
 (declaim (optimize debug safety (speed 0)))
 
 
-(defpackage :it.unibo.cs.web.ritucci.ulb-sim.sofphone
+(defpackage :it.unibo.cs.web.ritucci.ulb-sim.softphone
   (:nicknames :sp)
   (:use :common-lisp :ds))
 

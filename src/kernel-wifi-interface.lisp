@@ -29,8 +29,8 @@
 
 (declaim (optimize debug safety (speed 0)))
 
-(defpackage :it.unibo.cs.web.ritucci.ulb-sim.kernel-interface
-  (:nicknames :kernel-iface)
+(defpackage :it.unibo.cs.web.ritucci.ulb-sim.kernel-wifi-interface
+  (:nicknames :kiface)
   (:use :common-lisp :ds))
 
-(in-package :kernel-iface)
+(in-package :kiface)
