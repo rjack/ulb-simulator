@@ -30,9 +30,8 @@
 (declaim (optimize debug safety (speed 0)))
 
 
-(defpackage :it.unibo.cs.web.ritucci.ulb-sim
+(defpackage :it.unibo.cs.web.ritucci.ulb-sim.ulb
   (:nicknames :ulb)
   (:use :common-lisp :ds))
 
 (in-package :ulb)
-
