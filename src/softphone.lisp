@@ -35,3 +35,34 @@
   (:use :common-lisp :ds))
 
 (in-package :sp)
+
+
+(let ((codec-bw (kbps 16))
+      (rtp-payload-min-size 300)
+      (rtp-payload-max-size 700))
+
+  (defun voice->rtp-packets (duration)
+    (let ((nbytes (* duration codec-bw)))
+      (labels ((rand-packet-size ()
+		 "Randomly choose the size of the next packet."
+		 (random-between rtp-payload-min-size
+				 rtp-payload-max-size))
+	       (slice-and-cons (nbytes-left packet-size list-acc)
+		 "Recursively cons the packet list."
+		 (if (>= packet-size nbytes-left)
+		     (cons (make-instance 'rtp-packet
+					  :payload-size nbytes-left)
+			   list-acc)
+		     (slice-and-cons (- nbytes-left packet-size)
+				     (rand-packet-size)
+				     (cons (make-instance 'rtp-packet
+							  :payload-size
+							  packet-size)
+					   list-acc)))))
+
+	(slice-and-cons nbytes (rand-packet-size) nil)))))
+
+
+(defclass softphone (simulated)
+  "TODO"
+  nil)
