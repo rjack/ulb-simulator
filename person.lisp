@@ -65,3 +65,9 @@
   (setf (ear-of prs)
 	(make-instance 'audio-in-port :id (fresh-id)
 		       :owner prs)))
+
+
+;; talk
+(defmethod output ((prs person) speech)
+  (put (mouth-of prs)
+       speech))
