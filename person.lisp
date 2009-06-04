@@ -71,3 +71,8 @@
 (defmethod output ((prs person) speech)
   (put (mouth-of prs)
        speech))
+
+
+;; hear
+(defmethod input ((prs person) sound)
+  (interpret sound))
