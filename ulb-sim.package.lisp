@@ -1,5 +1,5 @@
-;; ULB-Simulator
-;; UDP Load Balancing Simulator
+;; ULB-SIM
+;; UDP Load Balancing SIMulator
 
 ;; Copyright (C) 2009  Giacomo Ritucci
 
