@@ -53,3 +53,10 @@
 
 (defclass udp-out-port (out-port)
   nil)
+
+
+
+(defmethod put ((out audio-out-port) sound)
+  (multiple-value-bind (in connected-p)
+      (i/o-connected out)
+    (put in sound)))
