@@ -39,11 +39,11 @@
 
 
 
-(defclass audio-in-port (in-port)
+(defclass voice-in-port (in-port)
   nil)
 
 
-(defclass audio-out-port (out-port)
+(defclass voice-out-port (out-port)
   nil)
 
 
@@ -53,15 +53,3 @@
 
 (defclass udp-out-port (out-port)
   nil)
-
-
-
-(defmethod put ((out audio-out-port) sound)
-  (multiple-value-bind (in connected-p)
-      (i/o-connected out)
-    (put in sound)))
-
-
-
-(defmethod put ((in audio-in-port) sound)
-  (schedule #'input (owner-of in) sound :at 0))
