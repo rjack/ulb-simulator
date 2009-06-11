@@ -26,17 +26,38 @@
 ;; ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 ;; OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
 (declaim (optimize debug safety (speed 0)))
+;(declaim (optimize (debug 0) (safety 0) speed))
 
 
 ;; OVERVIEW
-
-;; TODO
+;;
+;;     +--------+ --> voice-out-port
+;;     | PERSON |
+;;     +--------+ <-- voice-in-port
 
 
 (in-package :ulb-sim)
 
+
+(defgeneric think (person events)
+  (:documentation "TODO"))
+
+
+(defclass voice (object)
+  ((message
+    :initarg :message
+    :initform (error ":message missing")
+    :reader message-of
+    :type string)))
+
+
+(defclass udp-packet (object)
+  ((message
+    :initarg :message
+    :initform (error ":message missing")
+    :reader message-of
+    :type string)))
 
 
 (defclass person (actor)
@@ -45,34 +66,35 @@
     :initform (error ":name missing")
     :reader name-of
     :type string)
-   (mouth
-    :initarg :mouth
-    :accessor mouth-of
-    :type audio-out-port)
-   (ear
-    :initarg :ear
-    :accessor ear-of
-    :type audio-in-port)))
+   (voice-in
+    :accessor voice-in-of
+    :type voice-in-port)
+   (voice-out
+    :accessor voice-out-of
+    :type voice-out-port)))
 
 
 
-(defmethod initialize-instance :after ((prs person) &key)
-  ;; make mouth
-  (setf (mouth-of prs)
-	(make-instance 'audio-out-port :id (fresh-id)
-		       :owner prs))
-  ;; make ear
-  (setf (ear-of prs)
-	(make-instance 'audio-in-port :id (fresh-id)
-		       :owner prs)))
+(defmethod initialize-instance :after ((p person) &key)
+  (with-accessors ((voi< voice-in-of) (voi> voice-out-of)) p
+    (setf voi< (make-instance 'voice-in-port :owner p))
+    (setf voi> (make-instance 'voice-out-port :owner p))))
 
 
-;; talk
-(defmethod output ((prs person) speech)
-  (put (mouth-of prs)
-       speech))
+(defmethod print-object ((p person) s)
+  (print-unreadable-object (p s :type t :identity t)
+    (format s "path: ~a name: ~a" (path p) (name-of p))))
 
 
-;; hear
-(defmethod input ((prs person) sound)
-  (interpret sound))
+
+;; PERSON BEHAVIOUR
+
+;; schedulable
+(defmethod think ((p person) (evs list))
+  "TODO"
+  nil)
+
+
+(defmethod handle-input ((p person) (evs list) (in voice-in-port)
+			 (vo voice))
+  (values p evs))
