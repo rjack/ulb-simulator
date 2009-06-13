@@ -56,6 +56,24 @@
 
 
 
-(defmethod handle-input ((sim simulator) (act softphone) (evs list)
-			 (in voice-in-port) (obj voice))
+;; schedulable
+(defmethod handle-input ((sim simulator) (sp softphone) (evs list)
+			 (in voice-in-port) (vo voice))
+  "Voice from user is converted in udp-packets and sent to ULB"
+  (labels ((schedule-all-rec (packets)
+	     (when packets
+	       (schedule sim sp evs
+
+  (let ((udp-packets (voice->udp-packets vo)))
+    (schedule sim sp evs
+	      (make-instance 'event
+			     :owner-path (path sp)
+			     :time (gettime evs)
+			     :fn #'do-output
+			     :args (list (udp-out-of sp)
+					 (first udp-packets))))
+
+
+(defmethod do-output ((sim simulator) (sp softphone) (evs list)
+			  (out udp-out-port) (ud udp-packet))
   nil)
