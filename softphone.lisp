@@ -32,54 +32,30 @@
 
 ;; OVERVIEW
 ;;
-;;     +--------+ --> voice-out-port
-;;     | PERSON |
-;;     +--------+ <-- voice-in-port
+;;     voice-in-port  --> +-----------+ --> udp-out-port
+;;                        | SOFTPHONE |
+;;     voice-out-port <-- +-----------+ <-- udp-in-port
 
 
 (in-package :ulb-sim)
 
 
-(defgeneric think (person events)
-  (:documentation "TODO"))
-
-
-
-(defclass person (actor)
-  ((name
-    :initarg :name
-    :initform (error ":name missing")
-    :reader name-of
-    :type string)
-   (voice-in
+(defclass softphone (actor)
+  ((voice-in
     :accessor voice-in-of
     :type voice-in-port)
    (voice-out
     :accessor voice-out-of
-    :type voice-out-port)))
+    :type voice-out-port)
+   (udp-in
+    :accessor udp-in-of
+    :type udp-in-port)
+   (udp-out
+    :accessor udp-out-of
+    :type udp-out-port)))
 
 
 
-(defmethod initialize-instance :after ((p person) &key)
-  (with-accessors ((voi< voice-in-of) (voi> voice-out-of)) p
-    (setf voi< (make-instance 'voice-in-port :owner p))
-    (setf voi> (make-instance 'voice-out-port :owner p))))
-
-
-(defmethod print-object ((p person) s)
-  (print-unreadable-object (p s :type t :identity t)
-    (format s "path: ~a name: ~a" (path p) (name-of p))))
-
-
-
-;; PERSON BEHAVIOUR
-
-;; schedulable
-(defmethod think ((p person) (evs list))
-  "TODO"
+(defmethod handle-input ((sim simulator) (act softphone) (evs list)
+			 (in voice-in-port) (obj voice))
   nil)
-
-
-(defmethod handle-input ((p person) (evs list) (in voice-in-port)
-			 (vo voice))
-  (values p evs))
