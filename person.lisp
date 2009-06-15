@@ -40,10 +40,6 @@
 (in-package :ulb-sim)
 
 
-(defgeneric think (person events)
-  (:documentation "TODO"))
-
-
 
 (defclass person (simulator)
   ((name
@@ -74,12 +70,21 @@
 
 ;; PERSON BEHAVIOUR
 
-;; schedulable
-(defmethod think ((p person) (evs list))
-  "TODO"
-  nil)
+
+(defmethod do-output ((p person) (evs list) (voice-out voice-out-port)
+		      (vo voice))
+  (call-next-method)
+
+
+
+(defmethod talk ((p person) (evs list) (duration fixnum))
+  (let ((vo (make-instance 'voice :duration duration)))
+    (do-output (add-child p vo) evs (voice-out-of p) vo)))
+
+
 
 
 (defmethod handle-input ((p person) (evs list) (in voice-in-port)
 			 (vo voice))
+  "Nothing to do."
   (values p evs))
