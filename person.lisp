@@ -45,7 +45,7 @@
 
 
 
-(defclass person (actor)
+(defclass person (simulator)
   ((name
     :initarg :name
     :initform (error ":name missing")
