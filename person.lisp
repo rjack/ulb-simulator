@@ -64,22 +64,21 @@
 
 (defmethod print-object ((p person) s)
   (print-unreadable-object (p s :type t :identity t)
-    (format s "path: ~a name: ~a" (path p) (name-of p))))
+    (format s "name: ~a" (name-of p))))
 
 
 
 ;; PERSON BEHAVIOUR
 
 
-(defmethod do-output ((p person) (evs list) (voice-out voice-out-port)
-		      (vo voice))
-  (call-next-method)
-
-
-
-(defmethod talk ((p person) (evs list) (duration fixnum))
+(defmethod talk ((p person) (duration fixnum))
   (let ((vo (make-instance 'voice :duration duration)))
-    (do-output (add-child p vo) evs (voice-out-of p) vo)))
+    (handler-bind ((port-not-connected #'cancel)
+		   (out-port-busy #'wait)
+		   (in-port-busy #'abort))
+      (output (add-child p vo)
+	      (voice-out-of p)
+	      vo))))
 
 
 
