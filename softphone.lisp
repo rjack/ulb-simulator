@@ -103,3 +103,15 @@
 				     (voice->udp-packets sp vo)))
       (when must-start-p
 	(send-to-ulb sp)))))
+
+
+(defmethod send-to-ulb ((sp softphone))
+  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
+    (assert (not (null outgoing-packets)) nil
+	    "send-to-ulb has nothing to send!")
+    (list (make-instance 'event
+			 :time (clock-of sp)
+			 :owner sp
+			 :fn #'output
+			 :args (list (udp-out-of sp)
+				     (first outgoing-packets)))))
