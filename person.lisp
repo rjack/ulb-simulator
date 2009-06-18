@@ -91,7 +91,8 @@
 
 
 (defmethod port-ready ((p person) (voice-out voice-out-port))
-  (talk p))
+  (when (things-to-say-of p)
+    (talk p)))
 
 
 (defmethod output ((p person) (voice-out voice-out-port) (vo voice))
@@ -102,14 +103,16 @@
 
 
 (defmethod talk ((p person))
-  (let ((vo (first (things-to-say-of p))))
-    (when vo
-      (list (make-instance 'event
-			   :owner p
-			   :time (clock-of p)
-			   :fn #'output
-			   :args (list (voice-out-of p)
-				       vo))))))
+  (with-accessors ((things-to-say things-to-say-of) (clock clock-of)
+		   (voice-out voice-out-of)) p
+    (assert (not (null things-to-say)) nil
+	    "Talk but nothing to say!")
+    (list (make-instance 'event
+			 :owner p
+			 :time clock
+			 :fn #'output
+			 :args (list voice-out
+				     (first things-to-say))))))
 
 
 (defmethod handle-input ((p person) (in voice-in-port) (vo voice))
