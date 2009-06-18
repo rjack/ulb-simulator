@@ -46,13 +46,13 @@
     :initform (list)
     :accessor outgoing-packets-of
     :type list
-    :documentation "List of udp-packets from user to ULB")
-   (incoming-packets
-    :initargs :incoming-packets
+    :documentation "List of udp-packets to be sent to ULB")
+   (incoming-voices
+    :initargs :incoming-voices
     :initform (list)
-    :accessor incoming-packets-of
+    :accessor incoming-voices-of
     :type list
-    :documentation "List of udp-packets from ULB to user.")
+    :documentation "List of voices to be sent to user.")
    (voice-in
     :accessor voice-in-of
     :type voice-in-port)
@@ -90,8 +90,13 @@
 				    list-acc))))))
       (remove-child sp vo)
       (let ((nbytes (* codec-bw (duration-of vo))))
-	(nreverse (packets nbytes (list)))))))
+	(nreverse (packets nbytes (list))))))
 
+
+  (defmethod udp-packet->voice ((sp softphone) (up udp-packet))
+    (remove-child sp up)
+    (make-instance 'voice :duration (/ (size-of up)
+				       codec-bw))))
 
 
 (defmethod handle-input ((sp softphone) (in voice-in-port) (vo voice))
@@ -105,6 +110,18 @@
 	(send-to-ulb sp)))))
 
 
+(defmethod handle-input ((sp softphone) (in udp-in-port)
+			 (up udp-packet))
+  (call-next-method)
+  (with-accessors ((incoming-voices incoming-voices-of)) sp
+    (let ((must-start-p (null incoming-voices)))
+      (setf incoming-voices (append incoming-voices
+				    (udp-packet->voice sp up)))
+      (when must-start-p
+	(send-to-user sp)))))
+
+
+
 (defmethod send-to-ulb ((sp softphone))
   (with-accessors ((outgoing-packets outgoing-packets-of)) sp
     (assert (not (null outgoing-packets)) nil
@@ -114,4 +131,16 @@
 			 :owner sp
 			 :fn #'output
 			 :args (list (udp-out-of sp)
-				     (first outgoing-packets)))))
+				     (first outgoing-packets))))))
+
+
+(defmethod send-to-user ((sp softphone))
+  (with-accessors ((incoming-voices incoming-voices-of)) sp
+    (assert (not (null incoming-voices)) nil
+	    "send-to-user has nothing to send!")
+    (list (make-instance 'event
+			 :time (clock-of sp)
+			 :owner sp
+			 :fn #'output
+			 :args (list (voice-out-of sp)
+				     (first incoming-voices))))))
