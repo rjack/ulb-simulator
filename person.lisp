@@ -47,6 +47,12 @@
     :initform (error ":name missing")
     :reader name-of
     :type string)
+   (things-to-say
+    :initarg :things-to-say
+    :initform nil
+    :accessor things-to-say-of
+    :type list
+    :documentation "List of voices")
    (voice-in
     :accessor voice-in-of
     :type voice-in-port)
@@ -64,26 +70,62 @@
 
 (defmethod print-object ((p person) s)
   (print-unreadable-object (p s :type t :identity t)
-    (format s "name: ~a" (name-of p))))
+    (format s "~a" (name-of p))))
 
 
 
 ;; PERSON BEHAVIOUR
 
 
-(defmethod talk ((p person) (duration fixnum))
-  (let ((vo (make-instance 'voice :duration duration)))
-    (handler-bind ((port-not-connected #'cancel)
-		   (out-port-busy #'wait)
-		   (in-port-busy #'abort))
-      (output (add-child p vo)
-	      (voice-out-of p)
-	      vo))))
+(defmethod lock-port ((p person) (voice-out voice-out-port)
+		      (vo voice))
+  "Voice-out locked until p finishes talking."
+  (call-next-method)
+  (setf (lock-of voice-out) t)
+  (list (make-instance 'event
+		       :owner p
+		       :time (+ (clock-of p)
+				(duration-of vo))
+		       :fn #'unlock-port
+		       :args (list voice-out))))
 
 
+(defmethod port-ready ((p person) (voice-out voice-out-port))
+  (talk p))
 
 
-(defmethod handle-input ((p person) (evs list) (in voice-in-port)
-			 (vo voice))
+(defmethod output ((p person) (voice-out voice-out-port) (vo voice))
+  (handler-bind ((port-not-connected #'abort)
+		 (out-port-busy #'wait)
+		 (in-port-busy #'abort))
+    (call-next-method)))
+
+
+(defmethod talk ((p person))
+  (let ((vo (first (things-to-say-of p))))
+    (when vo
+      (list (make-instance 'event
+			   :owner p
+			   :time (clock-of p)
+			   :fn #'output
+			   :args (list (voice-out-of p)
+				       vo))))))
+
+
+(defmethod handle-input ((p person) (in voice-in-port) (vo voice))
   "Nothing to do."
-  (values p evs))
+  (call-next-method)
+  (remove-child p vo)
+  nil)
+
+
+(defmethod remove-child ((p person) (vo voice))
+  "persons remove a voice in:
+   - talk: the voice must be the first in the thing-to-say list
+   - handle-input: the voice must not be in the thing-to-say list"
+  (with-accessors ((things-to-say things-to-say-of)) p
+    (if (eq vo (first things-to-say))
+	(pop (things-to-say-of p))
+	(assert (null (find vo things-to-say)) nil
+		"Removing the wrong child"))
+    (call-next-method)))

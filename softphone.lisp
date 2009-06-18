@@ -40,8 +40,20 @@
 (in-package :ulb-sim)
 
 
-(defclass softphone (actor)
-  ((voice-in
+(defclass softphone (simulator)
+  ((outgoing-packets
+    :initargs :outgoing-packets
+    :initform (list)
+    :accessor outgoing-packets-of
+    :type list
+    :documentation "List of udp-packets from user to ULB")
+   (incoming-packets
+    :initargs :incoming-packets
+    :initform (list)
+    :accessor incoming-packets-of
+    :type list
+    :documentation "List of udp-packets from ULB to user.")
+   (voice-in
     :accessor voice-in-of
     :type voice-in-port)
    (voice-out
@@ -55,26 +67,39 @@
     :type udp-out-port)))
 
 
-;; schedulable
-(defmethod handle-input ((sim simulator) (sp softphone) (evs list)
-			 (in voice-in-port) (vo voice))
-  "Voice from user is converted in udp-packets and sent to ULB"
-  (labels ((output-event (udp-packet)
-	     (make-instance 'event
-			    :owner-path (path sp)
-			    :time (gettime evs)
-			    :fn #'do-output
-			    :args (list (udp-out-of sp)
-					udp-packet))))
-    (schedule-all sim sp evs
-		  (mapcar #'output-event
-			  (voice->udp-packets vo)))))
 
-(defmethod can-output ((sp softphone) (evs list) (out udp-out-port))
+(let ((udp-min-size (bytes 300))
+      (udp-max-size (bytes 700)))
+
+  (defun random-packet-size ()
+    (+ udp-min-size
+       (random (1+ (- udp-max-size udp-min-size))))))
 
 
+(let ((codec-bw (kilobytes-per-second 16)))
 
-(defmethod do-output ((sp softphone) (evs list) (out udp-out-port)
-		      (ud udp-packet))
+  (defmethod voice->udp-packets ((sp softphone) (vo voice))
+    (labels ((packets (nbytes-left list-acc)
+	       (if (zerop nbytes-left)
+		   list-acc
+		   (let ((size (min nbytes-left
+				    (random-packet-size))))
+		     (packets (- nbytes-left size)
+			      (cons (make-instance 'udp-packet
+						   :size size)
+				    list-acc))))))
+      (remove-child sp vo)
+      (let ((nbytes (* codec-bw (duration-of vo))))
+	(nreverse (packets nbytes (list)))))))
 
-  (put sim sp evs out ud))
+
+
+(defmethod handle-input ((sp softphone) (in voice-in-port) (vo voice))
+  "Voice from user is converted in udp-packets."
+  (call-next-method)
+  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
+    (let ((must-start-p (null outgoing-packets)))
+      (setf outgoing-packets (append outgoing-packets
+				     (voice->udp-packets sp vo)))
+      (when must-start-p
+	(send-to-ulb sp)))))

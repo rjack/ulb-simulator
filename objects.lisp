@@ -6,11 +6,35 @@
 
 
 
+(defclass address ()
+  ((name
+    :initarg :name
+    :initform (error ":name missing")
+    :accessor name-of
+    :type string)
+   (port
+    :initarg :port
+    :initform (error ":port missing")
+    :accessor port-of
+    :type string)))
+
+
 (defclass udp-packet (object)
-  ((payload
+  ((source
+    :initarg :source
+    :reader source-of
+    :type address)
+   (destination
+    :initarg :destination
+    :reader destination-of
+    :type address)
+   (payload
     :initarg :payload
-    :initform (error ":payload missing")
-    :accessor payload-of)))
+    :accessor payload-of)
+   (size
+    :initarg :size
+    :accessor size-of
+    :type fixnum)))
 
 
 (defclass voice (object)
@@ -18,4 +42,4 @@
     :initarg :duration
     :initform (error ":duration missing")
     :reader duration-of
-    :type (fixnum 0))))
+    :type fixnum)))
