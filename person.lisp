@@ -128,7 +128,7 @@
    - handle-input: the voice must not be in the thing-to-say list"
   (with-accessors ((things-to-say things-to-say-of)) p
     (if (eq vo (first things-to-say))
-	(pop (things-to-say-of p))
+	(pop things-to-say)
 	(assert (null (find vo things-to-say)) nil
 		"Removing the wrong child"))
     (call-next-method)))
