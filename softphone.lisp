@@ -77,6 +77,15 @@
     (call-next-method)))
 
 
+(defmethod remove-child ((sp softphone) (up udp-packet))
+  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
+    (if (eq up (first outgoing-packets))
+	(pop outgoing-packets)
+	(assert (null (find up outgoing-packets)) nil
+		"Removing the wrong child"))
+    (call-next-method)))
+
+
 (let ((udp-min-size (bytes 300))
       (udp-max-size (bytes 700)))
 
