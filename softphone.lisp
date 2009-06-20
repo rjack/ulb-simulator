@@ -68,6 +68,15 @@
 
 
 
+(defmethod remove-child ((sp softphone) (vo voice))
+  (with-accessors ((incoming-voices incoming-voices-of)) sp
+    (if (eq vo (first incoming-voices))
+	(pop incoming-voices)
+	(assert (null (find vo incoming-voices)) nil
+		"Removing the wrong child"))
+    (call-next-method)))
+
+
 (let ((udp-min-size (bytes 300))
       (udp-max-size (bytes 700)))
 
