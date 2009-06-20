@@ -14,7 +14,7 @@
 		 (:file "objects"
 			:depends-on ("ulb-sim.package"))
 		 (:file "ports"
-			:depends-on ("ulb-sim.package"))
+			:depends-on ("ulb-sim.package" "objects"))
 		 (:file "person"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "softphone"

@@ -47,10 +47,10 @@
     :accessor outgoing-packets-of
     :type list
     :documentation "List of udp-packets to be sent to ULB")
-   (incoming-voices
-    :initargs :incoming-voices
+   (outgoing-voices
+    :initargs :outgoing-voices
     :initform (list)
-    :accessor incoming-voices-of
+    :accessor outgoing-voices-of
     :type list
     :documentation "List of voices to be sent to user.")
    (voice-in
@@ -69,10 +69,10 @@
 
 
 (defmethod remove-child ((sp softphone) (vo voice))
-  (with-accessors ((incoming-voices incoming-voices-of)) sp
-    (if (eq vo (first incoming-voices))
-	(pop incoming-voices)
-	(assert (null (find vo incoming-voices)) nil
+  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
+    (if (eq vo (first outgoing-voices))
+	(pop outgoing-voices)
+	(assert (null (find vo outgoing-voices)) nil
 		"Removing the wrong child"))
     (call-next-method)))
 
@@ -92,6 +92,7 @@
   (defun random-packet-size ()
     (+ udp-min-size
        (random (1+ (- udp-max-size udp-min-size))))))
+
 
 
 (let ((codec-bw (kilobytes-per-second 16)))
@@ -128,16 +129,21 @@
 	(send-to-ulb sp)))))
 
 
+
 (defmethod handle-input ((sp softphone) (in udp-in-port)
 			 (up udp-packet))
   (call-next-method)
-  (with-accessors ((incoming-voices incoming-voices-of)) sp
-    (let ((must-start-p (null incoming-voices)))
-      (setf incoming-voices (append incoming-voices
+  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
+    (let ((must-start-p (null outgoing-voices)))
+      (setf outgoing-voices (append outgoing-voices
 				    (udp-packet->voice sp up)))
       (when must-start-p
 	(send-to-user sp)))))
 
+
+(defmethod port-ready ((sp softphone) (voice-out voice-out-port))
+  (when (outgoing-voices-of sp)
+    (send-to-user sp)))
 
 
 (defmethod send-to-ulb ((sp softphone))
@@ -153,12 +159,12 @@
 
 
 (defmethod send-to-user ((sp softphone))
-  (with-accessors ((incoming-voices incoming-voices-of)) sp
-    (assert (not (null incoming-voices)) nil
+  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
+    (assert (not (null outgoing-voices)) nil
 	    "send-to-user has nothing to send!")
     (list (make-instance 'event
 			 :time (clock-of sp)
 			 :owner sp
 			 :fn #'output
 			 :args (list (voice-out-of sp)
-				     (first incoming-voices))))))
+				     (first outgoing-voices))))))

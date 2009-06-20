@@ -53,3 +53,14 @@
 
 (defclass udp-out-port (out-port)
   nil)
+
+
+(defmethod lock-port ((sim simulator) (voice-out voice-out-port)
+		      (vo voice))
+  "Voice-out locked until sim finishes talking."
+  (list (make-instance 'event
+		       :owner sim
+		       :time (+ (clock-of sim)
+				(duration-of vo))
+		       :fn #'unlock-port
+		       :args (list voice-out))))
