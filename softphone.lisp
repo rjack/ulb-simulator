@@ -123,8 +123,9 @@
   (call-next-method)
   (with-accessors ((outgoing-packets outgoing-packets-of)) sp
     (let ((must-start-p (null outgoing-packets)))
-      (setf outgoing-packets (append outgoing-packets
-				     (voice->udp-packets sp vo)))
+      (setf outgoing-packets
+	    (append outgoing-packets
+		    (list (voice->udp-packets sp vo))))
       (when must-start-p
 	(send-to-ulb sp)))))
 
@@ -135,8 +136,9 @@
   (call-next-method)
   (with-accessors ((outgoing-voices outgoing-voices-of)) sp
     (let ((must-start-p (null outgoing-voices)))
-      (setf outgoing-voices (append outgoing-voices
-				    (udp-packet->voice sp up)))
+      (setf outgoing-voices
+	    (append outgoing-voices
+		    (list (udp-packet->voice sp up))))
       (when must-start-p
 	(send-to-user sp)))))
 
