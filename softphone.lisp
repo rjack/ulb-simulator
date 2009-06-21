@@ -95,7 +95,7 @@
 
 
 
-(let ((codec-bw (kilobytes-per-second 16)))
+(let ((codec-bw (kibibytes-per-second 16)))
 
   (defmethod voice->udp-packets ((sp softphone) (vo voice))
     (labels ((packets (nbytes-left list-acc)
