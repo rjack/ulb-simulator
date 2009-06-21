@@ -76,10 +76,10 @@
     :type link-udp-in-port)
    (host-udp-out
     :accessor host-udp-out-of
-    :type link-udp-out-port)
+    :type host-udp-out-port)
    (host-udp-in
     :accessor host-udp-in-of
-    :type link-udp-in-port)))
+    :type host-udp-in-port)))
 
 
 (defmethod handle-input ((ni network-interface)
