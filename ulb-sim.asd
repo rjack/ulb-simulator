@@ -20,4 +20,6 @@
 		 (:file "softphone"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "network-interfaces"
+			:depends-on ("ports" "objects" "ulb-sim.package"))
+		 (:file "network-links"
 			:depends-on ("ports" "objects" "ulb-sim.package"))))
