@@ -162,6 +162,56 @@
     :initform (error ":wlan-1 missing")
     :accessor wlan-1-of
     :type ulb-wifi-interface)
-   (outgoing-packets)
-   (incoming-packets)
-   (urgent-packets)))
+   (to-net-packets)
+   (to-phone-packets)))
+
+
+
+(defmethod handle-input ((u ulb) (lo-udp-in lo-udp-in-port)
+			 (up udp-packet))
+  "Incoming packet from softphone.
+   Lifetime: 150ms"
+  (call-next-method)
+  (let ((eol-ev (fresh-eol-event)))
+    (let ((dgram-struct (make-instance 'ulb-struct-datagram
+				       :eol-ev eol-ev
+				       :data (payload-of up)))
+	  (must-send-p (null (to-net-packets-of u))))
+      (setf (to-net-packets-of u)
+	    (append (to-net-packets-of u)
+		    (list dgram-struct)))
+      (cons eol-ev (when must-send-p
+		     (send-datagram (best-interface u)
+				    (first-to-send u)))))))
+
+
+(defmethod handle-input ((u ulb) (wlan-udp-in wlan-udp-in-port)
+			 (pkt udp-packet))
+  "Incoming packet from the net. Find the wlan interface owning this
+   port and call recv-datagram."
+  (let ((iface (find ...)))
+    (assert iface nil "receiving interface not found!")
+    (recv-datagram u iface pkt)))
+
+
+(defmethod handle-input ((u ulb) (wlan-notify-in wlan-notify-in-port)
+			 (ntf notification))
+  "ack or nack?")
+
+
+(defmethod recv-datagram ((u ulb) (uwi ulb-wifi-interface)
+			  (pkt udp-packet))
+  "Enqueue in to-phone")
+
+
+(defmethod recv-datagram ((u ulb) (uwi ulb-wifi-interface)
+			  (ping ping-packet))
+  "Record in full path log")
+
+
+(defmethod send-datagram ((u ulb) (uwi ulb-wifi-interface)
+			  (dg ulb-struct-datagram))
+  "reset ping timeout
+   record log
+   if not ping store datagram"
+  (error "TODO"))
