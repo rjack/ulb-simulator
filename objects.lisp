@@ -5,46 +5,6 @@
 (in-package :ulb-sim)
 
 
-
-(defclass address ()
-  ((name
-    :initarg :name
-    :initform (error ":name missing")
-    :accessor name-of
-    :type string)
-   (port
-    :initarg :port
-    :initform (error ":port missing")
-    :accessor port-of
-    :type string)))
-
-
-(defclass udp-packet (object)
-  ((source
-    :initarg :source
-    :reader source-of
-    :type address)
-   (destination
-    :initarg :destination
-    :reader destination-of
-    :type address)
-   (payload
-    :initarg :payload
-    :accessor payload-of)
-   (size
-    :initarg :size
-    :accessor size-of
-    :type fixnum)))
-
-
-(defclass voice (object)
-  ((duration
-    :initarg :duration
-    :initform (error ":duration missing")
-    :reader duration-of
-    :type fixnum)))
-
-
 (defun usecs (us)
   us)
 
@@ -122,3 +82,103 @@
 
 (defun mebibytes-per-second (mbps)
   (/ (mebibytes mbps) (secs 1)))
+
+
+
+;; Classes for various types of packets.
+
+;; PACKET: base class
+;; - overhead-size is the size of the headers and trailers of the
+;;   packet. If the overhead informations themselves are needed in the
+;;   simulation, they must be represented by additional slots on the
+;;   subclass (see UDP-PACKET).
+;; - payload can be nil or another incapsulated packet.
+
+;; DATA: a chunk of bytes
+;; no overhead, just data.
+;; - payload-size is the size of the payload
+;; - payload can be nil if the payload-size is the only information
+;;   needed by the simulation or can point to any LISP object that
+;;   represents the information.
+
+;; RTP-PACKET: just size.
+;; The RTP payload contains audio/video informations, not represented
+;; by ulb-sim.
+
+;; UDP-PACKET:
+;; The UPD payload can carry RTP or RAW packets.
+;; SOURCE and DESTINATION store the addresses written in the UDP
+;; header.
+
+
+
+(defclass packet (object)
+  ((overhead-size
+    :initform (bytes 0)
+    :reader overhead-size
+    :type fixnum)
+   (payload
+    :initarg :payload
+    :initform (error "missing :payload")
+    :reader payload)))
+
+
+(defclass data (packet)
+  ((payload
+    :initform nil)
+   (payload-size
+    :initarg :payload-size
+    :initform (error "missing :payload-size")
+    :reader payload-size
+    :type (integer 0))))
+
+
+(defclass rtp-packet (packet)
+  ((overhead-size
+    :initform (bytes 12))
+   (payload
+    :initform nil)))
+
+
+(defclass udp-packet (packet)
+  ((payload
+    :type (or rtp-packet data))
+   (overhead-size
+    :initform (bytes 8))
+   (source
+    :initarg :source
+    :initform (error "missing :source")
+    :accessor source)
+   (destination
+    :initarg :destination
+    :initform (error "missing :destination")
+    :accessor destination)))
+
+
+(defclass wifi-frame (packet)
+  ((overhead-size
+    :initform (bytes 32))
+   (payload
+    :type (or udp-packet data))))
+
+
+(defmethod size ((pkt packet))
+  (+ (overhead-size pkt)
+     (size (payload pkt))))
+
+
+(defmethod size ((pkt data))
+  (payload-size pkt))
+
+
+(defmethod size ((n null))
+  0)
+
+
+
+(defclass voice (object)
+  ((duration
+    :initarg :duration
+    :initform (error ":duration missing")
+    :reader duration-of
+    :type fixnum)))
