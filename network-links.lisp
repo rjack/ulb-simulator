@@ -153,7 +153,7 @@
 	  (list (make-instance 'event
 			       :time (+ clock
 					delay
-					(/ (size-of fst)
+					(/ (size fst)
 					   bandwidth))
 			       :owner nl
 			       :fn #'output
@@ -177,7 +177,7 @@
 	  (list (make-instance 'event
 			       :time (+ clock
 					delay
-					(/ (size-of fst)
+					(/ (size fst)
 					   bandwidth))
 			       :owner nl
 			       :fn #'output

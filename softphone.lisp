@@ -114,7 +114,7 @@
 
   (defmethod udp-packet->voice ((sp softphone) (up udp-packet))
     (remove-child sp up)
-    (make-instance 'voice :duration (/ (size-of up)
+    (make-instance 'voice :duration (/ (size up)
 				       codec-bw))))
 
 
