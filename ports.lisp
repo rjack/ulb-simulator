@@ -55,6 +55,22 @@
   nil)
 
 
+(defclass wifi-frame-in-port (in-port)
+  nil)
+
+
+(defclass wifi-frame-out-port (out-port)
+  nil)
+
+
+(defclass data-in-port (in-port)
+  nil)
+
+
+(defclass data-out-port (out-port)
+  nil)
+
+
 (defmethod lock-port ((sim simulator) (voice-out voice-out-port)
 		      (vo voice))
   "Voice-out locked until sim finishes talking."
