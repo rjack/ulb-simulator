@@ -17,6 +17,8 @@
 			:depends-on ("ulb-sim.package" "objects"))
 		 (:file "person"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
+		 (:file "access-point"
+			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "softphone"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "network-interfaces"
