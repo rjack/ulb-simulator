@@ -47,27 +47,34 @@
   nil)
 
 
-(defclass udp-in-port (in-port)
+(defclass packet-in-port (in-port)
+  nil)
+
+(defclass packet-out-port (out-port)
   nil)
 
 
-(defclass udp-out-port (out-port)
+(defclass udp-in-port (packet-in-port)
   nil)
 
 
-(defclass wifi-frame-in-port (in-port)
+(defclass udp-out-port (packet-out-port)
   nil)
 
 
-(defclass wifi-frame-out-port (out-port)
+(defclass wifi-frame-in-port (packet-in-port)
   nil)
 
 
-(defclass data-in-port (in-port)
+(defclass wifi-frame-out-port (packet-out-port)
   nil)
 
 
-(defclass data-out-port (out-port)
+(defclass data-in-port (packet-in-port)
+  nil)
+
+
+(defclass data-out-port (packet-out-port)
   nil)
 
 

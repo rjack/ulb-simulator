@@ -115,21 +115,22 @@
 (defclass packet (object)
   ((overhead-size
     :initform (bytes 0)
-    :reader overhead-size
+    :accessor overhead-size
     :type fixnum)
    (payload
     :initarg :payload
     :initform (error "missing :payload")
-    :reader payload)))
+    :accessor payload)))
 
 
 (defclass data (packet)
   ((payload
-    :initform nil)
+    :initform nil
+    :accessor payload-of)
    (payload-size
     :initarg :payload-size
     :initform (error "missing :payload-size")
-    :reader payload-size
+    :accessor payload-size
     :type (integer 0))))
 
 
@@ -159,7 +160,8 @@
   ((overhead-size
     :initform (bytes 32))
    (payload
-    :type (or udp-packet data))))
+    :initform nil
+    :type (or null udp-packet data))))
 
 
 (defmethod size ((pkt packet))
@@ -175,10 +177,32 @@
   0)
 
 
-
 (defclass voice (object)
   ((duration
     :initarg :duration
     :initform (error ":duration missing")
-    :reader duration-of
+    :accessor duration-of
     :type fixnum)))
+
+
+(defmethod voice->rtp-packets ((vo voice)
+			       &key codec-bw rtp-min rtp-max)
+  (labels ((random-packet-size ()
+	     (+ rtp-min
+		(random (1+ (- rtp-max rtp-min)))))
+	   (packets (nbytes-left list-acc)
+	     (if (zerop nbytes-left)
+		 list-acc
+		 (let ((size (min nbytes-left
+				  (random-packet-size))))
+		   (packets (- nbytes-left size)
+			    (cons (make-instance 'rtp-packet
+						 :payload-size size)
+				  list-acc))))))
+    (let ((nbytes (* codec-bw (duration-of vo))))
+      (nreverse (packets nbytes (list))))))
+
+
+(defmethod rtp-packet->voice ((rp rtp-packet) &key codec-bw)
+  (make-instance 'voice :duration (/ (size (payload-of rp))
+				     codec-bw)))

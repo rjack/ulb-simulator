@@ -32,9 +32,9 @@
 
 ;; OVERVIEW
 ;;
-;;     voice-in-port  --> +-----------+ --> udp-out-port
+;;     voice-in-port  --> +-----------+ --> packet-out-port
 ;;                        | SOFTPHONE |
-;;     voice-out-port <-- +-----------+ <-- udp-in-port
+;;     voice-out-port <-- +-----------+ <-- packet-in-port
 
 
 (in-package :ulb-sim)
@@ -46,7 +46,7 @@
     :initform (list)
     :accessor outgoing-packets-of
     :type list
-    :documentation "List of udp-packets to be sent to ULB")
+    :documentation "List of rtp-packets to be sent to ULB")
    (outgoing-voices
     :initargs :outgoing-voices
     :initform (list)
@@ -59,93 +59,71 @@
    (voice-out
     :accessor voice-out-of
     :type voice-out-port)
-   (udp-in
-    :accessor udp-in-of
-    :type udp-in-port)
-   (udp-out
-    :accessor udp-out-of
-    :type udp-out-port)))
+   (packet-in
+    :accessor packet-in-of
+    :type packet-in-port)
+   (packet-out
+    :accessor packet-out-of
+    :type packet-out-port)))
 
 
 
-(defmethod remove-child ((sp softphone) (vo voice))
-  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
-    (if (eq vo (first outgoing-voices))
-	(pop outgoing-voices)
-	(assert (null (find vo outgoing-voices)) nil
-		"Removing the wrong child"))
-    (call-next-method)))
+(let ((codec-bw (kibibytes-per-second 16))
+      (rtp-min-size (bytes 300))
+      (rtp-max-size (bytes 700)))
 
 
-(defmethod remove-child ((sp softphone) (up udp-packet))
-  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
-    (if (eq up (first outgoing-packets))
-	(pop outgoing-packets)
-	(assert (null (find up outgoing-packets)) nil
-		"Removing the wrong child"))
-    (call-next-method)))
+  (defmethod receive ((sp softphone) (vo voice))
+    (remove-child sp vo)
+    (let ((rtp-packets (voice->rtp-packets vo
+					   :bw codec-bw
+					   :rtp-min rtp-min-size
+					   :rtp-max rtp-max-size)))
+      (with-accessors ((outgoing-packets outgoing-packets-of))
+	  (add-children sp rtp-packets)
+	(setf outgoing-packets
+	      (append outgoing-packets
+		      rtp-packets)))))
 
 
-(let ((udp-min-size (bytes 300))
-      (udp-max-size (bytes 700)))
+  (defmethod receive ((sp softphone) (rp rtp-packet))
+    (remove-child sp rp)
+    (let ((vo (rtp-packet->voice sp rp)))
+      (with-accessors ((outgoing-voices outgoing-voices-of)) sp
+	(setf outgoing-voices
+	      (append outgoing-voices
+		      (list vo)))))))
 
-  (defun random-packet-size ()
-    (+ udp-min-size
-       (random (1+ (- udp-max-size udp-min-size))))))
-
-
-
-(let ((codec-bw (kibibytes-per-second 16)))
-
-  (defmethod voice->udp-packets ((sp softphone) (vo voice))
-    (labels ((packets (nbytes-left list-acc)
-	       (if (zerop nbytes-left)
-		   list-acc
-		   (let ((size (min nbytes-left
-				    (random-packet-size))))
-		     (packets (- nbytes-left size)
-			      (cons (make-instance 'udp-packet
-						   :size size)
-				    list-acc))))))
-      (remove-child sp vo)
-      (let ((nbytes (* codec-bw (duration-of vo))))
-	(nreverse (packets nbytes (list))))))
-
-
-  (defmethod udp-packet->voice ((sp softphone) (up udp-packet))
-    (remove-child sp up)
-    (make-instance 'voice :duration (/ (size up)
-				       codec-bw))))
 
 
 (defmethod handle-input ((sp softphone) (in voice-in-port) (vo voice))
-  "Voice from user is converted in udp-packets."
+  "Voice from user is converted in rtp-packets."
   (call-next-method)
-  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
-    (let ((must-start-p (null outgoing-packets)))
-      (setf outgoing-packets
-	    (append outgoing-packets
-		    (list (voice->udp-packets sp vo))))
-      (when must-start-p
-	(send-to-ulb sp)))))
+  (let ((must-start-p (null (outgoing-packets-of sp))))
+    (receive sp vo)
+    (when must-start-p
+      (send-to-ulb sp))))
 
 
-
-(defmethod handle-input ((sp softphone) (in udp-in-port)
-			 (up udp-packet))
+(defmethod handle-input ((sp softphone) (in packet-in-port)
+			 (rp rtp-packet))
   (call-next-method)
-  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
-    (let ((must-start-p (null outgoing-voices)))
-      (setf outgoing-voices
-	    (append outgoing-voices
-		    (list (udp-packet->voice sp up))))
-      (when must-start-p
-	(send-to-user sp)))))
+  (let ((must-start-p (null (outgoing-voices-of sp))))
+    (receive rp)
+    (when must-start-p
+      (send-to-user sp))))
+
 
 
 (defmethod port-ready ((sp softphone) (voice-out voice-out-port))
   (when (outgoing-voices-of sp)
     (send-to-user sp)))
+
+
+(defmethod port-ready ((sp softphone) (packet-out packet-out-port))
+  (when (outgoing-packets-of sp)
+    (send-to-ulb sp)))
+
 
 
 (defmethod send-to-ulb ((sp softphone))
@@ -156,7 +134,7 @@
 			 :time (clock-of sp)
 			 :owner sp
 			 :fn #'output
-			 :args (list (udp-out-of sp)
+			 :args (list (packet-out-of sp)
 				     (first outgoing-packets))))))
 
 
@@ -170,3 +148,22 @@
 			 :fn #'output
 			 :args (list (voice-out-of sp)
 				     (first outgoing-voices))))))
+
+
+
+(defmethod remove-child ((sp softphone) (vo voice))
+  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
+    (if (eq vo (first outgoing-voices))
+	(pop outgoing-voices)
+	(assert (null (find vo outgoing-voices)) nil
+		"Removing the wrong child"))
+    (call-next-method)))
+
+
+(defmethod remove-child ((sp softphone) (rp rtp-packet))
+  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
+    (if (eq rp (first outgoing-packets))
+	(pop outgoing-packets)
+	(assert (null (find rp outgoing-packets)) nil
+		"Removing the wrong child"))
+    (call-next-method)))
