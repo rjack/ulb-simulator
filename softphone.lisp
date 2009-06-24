@@ -33,7 +33,7 @@
 ;; OVERVIEW
 ;;
 ;;     voice-in-port  --> +-----------+ --> packet-out-port
-;;                        | SOFTPHONE |
+;;         PERSON         | SOFTPHONE |          ULB
 ;;     voice-out-port <-- +-----------+ <-- packet-in-port
 
 
@@ -41,18 +41,18 @@
 
 
 (defclass softphone (simulator)
-  ((outgoing-packets
-    :initargs :outgoing-packets
+  ((to-ulb
+    :initargs :to-ulb
     :initform (list)
-    :accessor outgoing-packets-of
+    :accessor to-ulb-of
     :type list
     :documentation "List of rtp-packets to be sent to ULB")
-   (outgoing-voices
-    :initargs :outgoing-voices
+   (to-person
+    :initargs :to-person
     :initform (list)
-    :accessor outgoing-voices-of
+    :accessor to-person-of
     :type list
-    :documentation "List of voices to be sent to user.")
+    :documentation "List of voices to be sent to person.")
    (voice-in
     :accessor voice-in-of
     :type voice-in-port)
@@ -68,6 +68,24 @@
 
 
 
+(defmethod in-port-ready ((sp softphone) (voice-out voice-out-port))
+  (when (to-person-of sp)
+    (send-to-person sp)))
+
+(defmethod out-port-ready ((sp softphone) (voice-out voice-out-port))
+  (when (to-person-of sp)
+    (send-to-person sp)))
+
+(defmethod in-port-ready ((sp softphone) (packet-out packet-out-port))
+  (when (to-ulb-of sp)
+    (send-to-ulb sp)))
+
+(defmethod out-port-ready ((sp softphone) (packet-out packet-out-port))
+  (when (to-ulb-of sp)
+    (send-to-ulb sp)))
+
+
+
 (let ((codec-bw (kibibytes-per-second 16))
       (rtp-min-size (bytes 300))
       (rtp-max-size (bytes 700)))
@@ -79,27 +97,27 @@
 					   :bw codec-bw
 					   :rtp-min rtp-min-size
 					   :rtp-max rtp-max-size)))
-      (with-accessors ((outgoing-packets outgoing-packets-of))
+      (with-accessors ((to-ulb to-ulb-of))
 	  (add-children sp rtp-packets)
-	(setf outgoing-packets
-	      (append outgoing-packets
+	(setf to-ulb
+	      (append to-ulb
 		      rtp-packets)))))
 
 
   (defmethod receive ((sp softphone) (rp rtp-packet))
     (remove-child sp rp)
     (let ((vo (rtp-packet->voice sp rp)))
-      (with-accessors ((outgoing-voices outgoing-voices-of)) sp
-	(setf outgoing-voices
-	      (append outgoing-voices
+      (with-accessors ((to-person to-person-of)) sp
+	(setf to-person
+	      (append to-person
 		      (list vo)))))))
 
 
 
 (defmethod handle-input ((sp softphone) (in voice-in-port) (vo voice))
-  "Voice from user is converted in rtp-packets."
+  "Voice from person is converted in rtp-packets."
   (call-next-method)
-  (let ((must-start-p (null (outgoing-packets-of sp))))
+  (let ((must-start-p (null (to-ulb-of sp))))
     (receive sp vo)
     (when must-start-p
       (send-to-ulb sp))))
@@ -108,62 +126,51 @@
 (defmethod handle-input ((sp softphone) (in packet-in-port)
 			 (rp rtp-packet))
   (call-next-method)
-  (let ((must-start-p (null (outgoing-voices-of sp))))
+  (let ((must-start-p (null (to-person-of sp))))
     (receive rp)
     (when must-start-p
-      (send-to-user sp))))
-
-
-
-(defmethod port-ready ((sp softphone) (voice-out voice-out-port))
-  (when (outgoing-voices-of sp)
-    (send-to-user sp)))
-
-
-(defmethod port-ready ((sp softphone) (packet-out packet-out-port))
-  (when (outgoing-packets-of sp)
-    (send-to-ulb sp)))
+      (send-to-person sp))))
 
 
 
 (defmethod send-to-ulb ((sp softphone))
-  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
-    (assert (not (null outgoing-packets)) nil
+  (with-accessors ((to-ulb to-ulb-of)) sp
+    (assert (not (null to-ulb)) nil
 	    "send-to-ulb has nothing to send!")
     (list (make-instance 'event
 			 :time (clock-of sp)
 			 :owner sp
 			 :fn #'output
 			 :args (list (packet-out-of sp)
-				     (first outgoing-packets))))))
+				     (first to-ulb))))))
 
 
-(defmethod send-to-user ((sp softphone))
-  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
-    (assert (not (null outgoing-voices)) nil
-	    "send-to-user has nothing to send!")
+(defmethod send-to-person ((sp softphone))
+  (with-accessors ((to-person to-person-of)) sp
+    (assert (not (null to-person)) nil
+	    "send-to-person has nothing to send!")
     (list (make-instance 'event
 			 :time (clock-of sp)
 			 :owner sp
 			 :fn #'output
 			 :args (list (voice-out-of sp)
-				     (first outgoing-voices))))))
+				     (first to-person))))))
 
 
 
 (defmethod remove-child ((sp softphone) (vo voice))
-  (with-accessors ((outgoing-voices outgoing-voices-of)) sp
-    (if (eq vo (first outgoing-voices))
-	(pop outgoing-voices)
-	(assert (null (find vo outgoing-voices)) nil
+  (with-accessors ((to-person to-person-of)) sp
+    (if (eq vo (first to-person))
+	(pop to-person)
+	(assert (null (find vo to-person)) nil
 		"Removing the wrong child"))
     (call-next-method)))
 
 
 (defmethod remove-child ((sp softphone) (rp rtp-packet))
-  (with-accessors ((outgoing-packets outgoing-packets-of)) sp
-    (if (eq rp (first outgoing-packets))
-	(pop outgoing-packets)
-	(assert (null (find rp outgoing-packets)) nil
+  (with-accessors ((to-ulb to-ulb-of)) sp
+    (if (eq rp (first to-ulb))
+	(pop to-ulb)
+	(assert (null (find rp to-ulb)) nil
 		"Removing the wrong child"))
     (call-next-method)))
