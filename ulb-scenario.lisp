@@ -110,44 +110,128 @@
     :initform (error ":b-wlan0 missing")
     :accessor b-wlan-of
     :type network-interface)
-   (a-wifi-00
-    :initarg :a-wifi-00
-    :initform (error ":a-wifi-00 missing")
-    :accessor a-wifi-00-of
+   (a-wifi-0
+    :initarg :a-wifi-0
+    :initform (error ":a-wifi-0 missing")
+    :accessor a-wifi-0-of
     :type network-link)
-   (a-wifi-01
-    :initarg :a-wifi-00
-    :initform (error ":a-wifi-01 missing")
-    :accessor a-wifi-01-of
+   (a-wifi-1
+    :initarg :a-wifi-1
+    :initform (error ":a-wifi-1 missing")
+    :accessor a-wifi-1-of
     :type network-link)
-   (a-wifi-10
-    :initarg :a-wifi-10
-    :initform (error ":a-wifi-10 missing")
-    :accessor a-wifi-10-of
+   (b-wifi-0
+    :initarg :b-wifi-0
+    :initform (error ":b-wifi-0 missing")
+    :accessor b-wifi-0-of
     :type network-link)
-   (a-wifi-11
-    :initarg :a-wifi-11
-    :initform (error ":a-wifi-11 missing")
-    :accessor a-wifi-11-of
+   (b-wifi-1
+    :initarg :b-wifi-1
+    :initform (error ":b-wifi-1 missing")
+    :accessor b-wifi-1-of
     :type network-link)
-   (b-wifi-00
-    :initarg :b-wifi-00
-    :initform (error ":b-wifi-00 missing")
-    :accessor b-wifi-00-of
+   (a-ap0-wlan
+    :initarg :a-ap0-wlan
+    :initform (error ":a-ap0-wlan missing")
+    :accessor a-ap0-wlan-of
+    :type network-interface)
+   (a-ap1-wlan
+    :initarg :a-ap1-wlan
+    :initform (error ":a-ap1-wlan missing")
+    :accessor a-ap1-wlan-of
+    :type network-interface)
+   (b-ap0-wlan
+    :initarg :b-ap0-wlan
+    :initform (error ":b-ap0-wlan missing")
+    :accessor b-ap0-wlan-of
+    :type network-interface)
+   (b-ap1-wlan
+    :initarg :b-ap1-wlan
+    :initform (error ":b-ap1-wlan missing")
+    :accessor b-ap1-wlan-of
+    :type network-interface)
+   (a-ap0
+    :initarg :a-ap0
+    :initform (error ":a-ap0 missing")
+    :accessor a-ap0-of
+    :type access-point)
+   (a-ap1
+    :initarg :a-ap1
+    :initform (error ":a-ap1 missing")
+    :accessor a-ap1-of
+    :type access-point)
+   (b-ap0
+    :initarg :b-ap0
+    :initform (error ":b-ap0 missing")
+    :accessor b-ap0-of
+    :type access-point)
+   (b-ap1
+    :initarg :b-ap1
+    :initform (error ":b-ap1 missing")
+    :accessor b-ap1-of
+    :type access-point)
+   (a-ap0-eth
+    :initarg :a-ap0-eth
+    :initform (error ":a-ap0-eth missing")
+    :accessor a-ap0-eth-of
+    :type network-interface)
+   (a-ap1-eth
+    :initarg :a-ap1-eth
+    :initform (error ":a-ap1-eth missing")
+    :accessor a-ap1-eth-of
+    :type network-interface)
+   (b-ap0-eth
+    :initarg :b-ap0-eth
+    :initform (error ":b-ap0-eth missing")
+    :accessor b-ap0-eth-of
+    :type network-interface)
+   (b-ap1-eth
+    :initarg :b-ap1-eth
+    :initform (error ":b-ap1-eth missing")
+    :accessor b-ap1-eth-of
+    :type network-interface)
+   (a-internet
+    :initarg :a-internet
+    :initform (error ":a-internet missing")
+    :accessor a-internet-of
     :type network-link)
-   (b-wifi-01
-    :initarg :b-wifi-00
-    :initform (error ":b-wifi-01 missing")
-    :accessor b-wifi-01-of
+   (b-internet
+    :initarg :b-internet
+    :initform (error ":b-internet missing")
+    :accessor b-internet-of
     :type network-link)
-   (b-wifi-10
-    :initarg :b-wifi-10
-    :initform (error ":b-wifi-10 missing")
-    :accessor b-wifi-10-of
-    :type network-link)
-   (b-wifi-11
-    :initarg :b-wifi-11
-    :initform (error ":b-wifi-11 missing")
-    :accessor b-wifi-11-of
-    :type network-link)
-   ... TODO
+   (a-proxy-eth0
+    :initarg :a-proxy-eth0
+    :initform (error ":a-proxy-eth0 missing")
+    :accessor a-proxy-eth0-of
+    :type network-interface)
+   (b-proxy-eth0
+    :initarg :b-proxy-eth0
+    :initform (error ":b-proxy-eth0 missing")
+    :accessor b-proxy-eth0-of
+    :type network-interface)
+   (a-proxy
+    :initarg :a-proxy
+    :initform (error ":a-proxy missing")
+    :accessor a-proxy-of
+    :type proxy-server)
+   (b-proxy
+    :initarg :b-proxy
+    :initform (error ":b-proxy missing")
+    :accessor b-proxy-of
+    :type proxy-server)
+   (a-proxy-eth1
+    :initarg :a-proxy-eth1
+    :initform (error ":a-proxy-eth1 missing")
+    :accessor a-proxy-eth1-of
+    :type network-interface)
+   (b-proxy-eth1
+    :initarg :b-proxy-eth1
+    :initform (error ":b-proxy-eth1 missing")
+    :accessor b-proxy-eth1-of
+    :type network-interface)
+   (ab-internet
+    :initarg :ab-internet
+    :initform (error ":ab-internet missing")
+    :accessor ab-internet-of
+    :type network-link)))
