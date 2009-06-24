@@ -39,7 +39,7 @@
 (in-package :ulb-sim)
 
 
-(defclass ulb-scenario (scenario)
+(defclass ulb-sim (scenario)
   ((alice
     :initarg :alice
     :initform (error ":alice missing")

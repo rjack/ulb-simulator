@@ -24,4 +24,13 @@
 		 (:file "network-interfaces"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "network-links"
-			:depends-on ("ports" "objects" "ulb-sim.package"))))
+			:depends-on ("ports" "objects" "ulb-sim.package"))
+		 (:file "ulb-sim"
+			:depends-on ("ulb-sim.package"
+				     "objects"
+				     "ports"
+				     "person"
+				     "access-point"
+				     "softphone"
+				     "network-interfaces"
+				     "network-links"))))
