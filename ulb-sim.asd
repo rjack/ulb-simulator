@@ -25,6 +25,8 @@
 			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "network-links"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
+		 (:file "proxy-server"
+			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "ulb-sim"
 			:depends-on ("ulb-sim.package"
 				     "objects"
@@ -33,4 +35,5 @@
 				     "access-point"
 				     "softphone"
 				     "network-interfaces"
-				     "network-links"))))
+				     "network-links"
+				     "proxy-server"))))

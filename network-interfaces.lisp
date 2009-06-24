@@ -68,11 +68,11 @@
     :initform (list)
     :accessor to-host-packets-of
     :type list)
-   (link-udp-out
-    :accessor link-udp-out-of
+   (link-out
+    :accessor link-out-of
     :type link-udp-out-port)
-   (link-udp-in
-    :accessor link-udp-in-of
+   (link-in
+    :accessor link-in-of
     :type link-udp-in-port)
    (host-udp-out
     :accessor host-udp-out-of
@@ -83,7 +83,7 @@
 
 
 (defmethod handle-input ((ni network-interface)
-			 (link-udp-in link-udp-in-port)
+			 (link-in link-udp-in-port)
 			 (up udp-packet))
   (call-next-method)
   (with-accessors ((to-host-packets to-host-packets-of)) ni
@@ -113,7 +113,7 @@
 
 
 (defmethod port-ready ((ni network-interface)
-		       (link-udp-out link-udp-out-port))
+		       (link-out link-udp-out-port))
   (when (to-link-packets-of ni)
     (send-to-link ni)))
 
@@ -133,14 +133,14 @@
 
 (defmethod send-to-link ((ni network-interface))
   (with-accessors ((to-link-packets to-link-packets-of)
-		   (link-udp-out link-udp-out-of)
+		   (link-out link-out-of)
 		   (clock clock-of)) ni
     (assert to-link-packets nil "send-to-link has nothing to send")
     (list (make-instance 'event
 			 :time clock
 			 :owner ni
 			 :fn #'output
-			 :args (list link-udp-out
+			 :args (list link-out
 				     (first to-link-packets))))))
 
 

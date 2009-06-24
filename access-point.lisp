@@ -83,21 +83,25 @@
 
 
 
-(defmethod port-ready ((ap access-point)
-		       (wlan-data-in wlan-data-in-port))
-  (send-to-wlan ap))
+(defmethod in-port-ready ((ap access-point)
+			  (wlan-data-out wlan-data-out-port))
+  (when (to-wlan-data-of ap)
+    (send-to-wlan ap)))
 
-(defmethod port-ready ((ap access-point)
-		       (wlan-data-out wlan-data-out-port))
-  (send-to-wlan ap))
+(defmethod out-port-ready ((ap access-point)
+			   (wlan-data-out wlan-data-out-port))
+  (when (to-wlan-data-of ap)
+    (send-to-wlan ap)))
 
-(defmethod port-ready ((ap access-point)
-		       (eth-data-in eth-data-in-port))
-  (send-to-eth ap))
+(defmethod in-port-ready ((ap access-point)
+			  (eth-data-out eth-data-out-port))
+  (when (to-eth-data-of ap)
+    (send-to-eth ap)))
 
-(defmethod port-ready ((ap access-point)
-		       (eth-data-out eth-data-out-port))
-  (send-to-eth ap))
+(defmethod out-port-ready ((ap access-point)
+			   (eth-data-out eth-data-out-port))
+  (when (to-eth-data-of ap)
+    (send-to-eth ap)))
 
 
 
@@ -111,6 +115,7 @@
   (setf (to-wlan-data-of ap)
 	(append (to-wlan-data-of ap)
 		(list da))))
+
 
 
 (defmethod handle-input ((ap access-point)
@@ -143,11 +148,13 @@
 	(send-to-wlan ap)))))
 
 
+
 (defmethod output ((ap access-point) (out out-port) (obj object))
   (handler-bind ((port-not-connected #'abort)
 		 (out-port-busy #'wait)
 		 (in-port-busy #'wait))
     (call-next-method)))
+
 
 
 (defmethod send-to-wlan ((ap access-point))
