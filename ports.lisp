@@ -62,6 +62,14 @@
   nil)
 
 
+(defclass rtp-in-port (packet-in-port)
+  nil)
+
+
+(defclass rtp-out-port (packet-out-port)
+  nil)
+
+
 (defclass wifi-frame-in-port (packet-in-port)
   nil)
 

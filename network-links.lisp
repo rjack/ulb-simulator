@@ -188,8 +188,8 @@
 (defmethod remove-child ((nl network-link) (up udp-packet))
   (with-accessors ((to-b-packets to-b-packets-of)
 		   (to-a-packets to-a-packets-of)) nl
-    (cond ((eq up (first to-b-packets))
+    (cond ((obj= up (first to-b-packets))
 	   (pop to-b-packets))
-	  ((eq up (first to-a-packets))
+	  ((obj= up (first to-a-packets))
 	   (pop to-a-packets))
 	  (t (error "removing the wrong child!")))))

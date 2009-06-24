@@ -33,122 +33,212 @@
 
 ;; OVERVIEW
 ;;
-;;     udp-in-port  --> +-------------------+ --> udp-out-port
-;;        LINK          | NETWORK-INTERFACE |        HOST
-;;     udp-out-port <-- +-------------------+ <-- udp-in-port
+;;     link-in-port  --> +----------------+ --> host-out-port
+;;         LINK          | WIFI-INTERFACE |        HOST
+;;     link-out-port <-- +----------------+ <-- host-in-port
 ;;
-;; handle-input udp-packet: output to other endpoint
+
 
 
 (in-package :ulb-sim)
 
 
-(defclass host-udp-in-port (udp-in-port)
+
+(defclass host-in-port (rtp-in-port)
   nil)
 
 
-(defclass host-udp-out-port (udp-out-port)
+(defclass host-out-port (rtp-out-port)
   nil)
 
 
-(defclass link-udp-in-port (udp-in-port)
+(defclass link-in-port (wifi-frame-in-port)
   nil)
 
 
-(defclass link-udp-out-port (udp-out-port)
+(defclass link-out-port (wifi-frame-out-port)
   nil)
 
 
-(defclass network-interface (simulator)
-  ((to-link-packets
+
+(defclass wifi-interface (simulator)
+  ((to-link
     :initform (list)
-    :accessor to-link-packets-of
+    :accessor to-link-of
     :type list)
-   (to-host-packets
+   (to-host
     :initform (list)
-    :accessor to-host-packets-of
+    :accessor to-host-of
     :type list)
    (link-out
     :accessor link-out-of
-    :type link-udp-out-port)
+    :type link-out-port)
    (link-in
     :accessor link-in-of
-    :type link-udp-in-port)
-   (host-udp-out
-    :accessor host-udp-out-of
-    :type host-udp-out-port)
-   (host-udp-in
-    :accessor host-udp-in-of
-    :type host-udp-in-port)))
+    :type link-in-port)
+   (host-out
+    :accessor host-out-of
+    :type host-out-port)
+   (host-in
+    :accessor host-in-of
+    :type host-in-port)
+   (ack-timeout
+    :accessor ack-timeout-of
+    :type event)))
 
 
-(defmethod handle-input ((ni network-interface)
-			 (link-in link-udp-in-port)
-			 (up udp-packet))
+
+(defmethod ack-timeout-expired ((wi wifi-interface))
+  (assert (to-link-of wi) nil
+	  "Ack timeout expired, but nothing to re-send!")
+  (send-to-link wi))
+
+
+(defmethod lock-port ((wi wifi-interface) (host-in host-in-port)
+		      (p packet))
+  "Stop and go algorithm! The port remains locked until the sent frame
+   is acked back or the ack-timeout runs out."
+  nil)
+
+
+(defmethod in-port-ready ((wi wifi-interface)
+			  (host-out host-out-port))
+  (when (to-host-of wi)
+    (send-to-host wi)))
+
+
+(defmethod out-port-ready ((wi wifi-interface)
+			   (host-out host-out-port))
+  (when (to-host-of wi)
+    (send-to-host wi)))
+
+
+(defmethod in-port-ready ((wi wifi-interface)
+			  (link-out link-out-port))
+  (when (to-link-of wi)
+    (send-to-link wi)))
+
+
+(defmethod out-port-ready ((wi wifi-interface)
+			   (link-out link-out-port))
+  (when (to-link-of wi)
+    (send-to-link wi)))
+
+
+
+(defmethod receive ((wi wifi-interface) (wf wifi-frame))
+  (remove-child wi wf)
+  (let ((rtp (wifi-frame->rtp-packet wf)))
+    (with-accessors ((to-host to-host-of)) wi
+      (setf to-host
+	    (append to-host
+		    (list rtp))))))
+
+
+(defmethod receive ((wi wifi-interface) (rtp rtp-packet))
+  (remove-child wi rtp)
+  (let ((wf (rtp-packet->wifi-frame rtp)))
+    (with-accessors ((to-link to-link-of)) wi
+      (setf to-link
+	    (append to-link
+		    (list wf))))))
+
+
+
+(defmethod handle-input ((wi wifi-interface)
+			 (link-in link-in-port)
+			 (wf wifi-frame))
   (call-next-method)
-  (with-accessors ((to-host-packets to-host-packets-of)) ni
-    (let ((must-start-p (null to-host-packets)))
-      (setf to-host-packets (append to-host-packets
-				    (list up)))
-      (when must-start-p
-	(send-to-host ni)))))
+  (let ((must-start-p (null to-host)))
+    (receive wi wf)
+    (when must-start-p
+      (send-to-host wi)))))
 
 
-(defmethod handle-input ((ni network-interface)
-			 (host-udp-in host-udp-in-port)
-			 (up udp-packet))
+(defmethod handle-input ((wi wifi-interface)
+			 (link-in link-in-port)
+			 (ack wifi-ack-frame))
+  "Stop and go: when receiving an ack, cancel the ack-timeout and
+   unlock the host-in-port."
   (call-next-method)
-  (with-accessors ((to-link-packets to-link-packets-of)) ni
-    (let ((must-start-p (null to-link-packets)))
-      (setf to-link-packets (append to-link-packets
-				    (list up)))
-      (when must-start-p
-	(send-to-link ni)))))
+  (remove-child ack)
+  (cancel-event (ack-timeout-of wi))
+  (list (make-instance 'event
+		       :owner wi
+		       :time (clock-of wi)
+		       :fn #'unlock-port
+		       :args (list (host-in-of wi)))))
 
 
-(defmethod port-ready ((ni network-interface)
-		       (host-udp-out host-udp-out-port))
-  (when (to-host-packets-of ni)
-    (send-to-host ni)))
+(defmethod handle-input ((wi wifi-interface)
+			 (host-in host-in-port)
+			 (rtp rtp-packet))
+  (call-next-method)
+  (let ((must-start-p (null to-link)))
+    (receive wi rtp)
+    (when must-start-p
+      (send-to-link wi))))
 
 
-(defmethod port-ready ((ni network-interface)
-		       (link-out link-udp-out-port))
-  (when (to-link-packets-of ni)
-    (send-to-link ni)))
+
+(defmethod output ((wi wifi-interface)
+		   (link-out link-out-port)
+		   (wf wifi-frame))
+  "Sending a frame, create the ack-timeout.
+   Don't remove the frame, it must be acked!"
+  (assert (obj= rtp (first (to-link-of wi))) nil
+	  "output wi link-out wf: not the first wifi frame to-host!")
+  (let ((ack-tmout (make-instance 'event
+				  :owner wi
+				  :time (+ (clock-of wi)
+					   (usecs 300))
+				  :fn #'ack-timeout-expired
+				  :args (host-in-of wi))))
+    (setf (ack-timeout-of wi)
+	  ack-tmout)
+    (cons ack-tmout
+	  (call-next-method))))
 
 
-(defmethod send-to-host ((ni network-interface))
-  (with-accessors ((to-host-packets to-host-packets-of)
-		   (host-udp-out host-udp-out-of)
-		   (clock clock-of)) ni
-    (assert to-host-packets nil "send-to-host has nothing to send")
+(defmethod output ((wi wifi-interface)
+		   (host-out host-out-port)
+		   (rtp rtp-packet))
+  (assert (obj= rtp (pop (to-host-of wi))) nil
+	  "output wi host-out rtp: not the first rtp packet to-host!")
+  (remove-child wi rtp))
+
+
+(defmethod output ((wi wifi-interface)
+		   (out out-port)
+		   (obj object))
+  (handler-bind ((port-not-connected #'abort)
+		 (out-port-busy #'wait)
+		 (in-port-busy #'wait))
+    (call-next-method)))))
+
+
+
+(defmethod send-to-host ((wi wifi-interface))
+  (with-accessors ((to-host to-host-of)
+		   (host-out host-out-of)
+		   (clock clock-of)) wi
+    (assert to-host wil "send-to-host has nothing to send")
     (list (make-instance 'event
 			 :time clock
-			 :owner ni
+			 :owner wi
 			 :fn #'output
-			 :args (list host-udp-out
-				     (first to-host-packets))))))
+			 :args (list host-out
+				     (first to-host))))))
 
 
-(defmethod send-to-link ((ni network-interface))
-  (with-accessors ((to-link-packets to-link-packets-of)
+(defmethod send-to-link ((wi wifi-interface))
+  (with-accessors ((to-link to-link-of)
 		   (link-out link-out-of)
-		   (clock clock-of)) ni
-    (assert to-link-packets nil "send-to-link has nothing to send")
+		   (clock clock-of)) wi
+    (assert to-link wil "send-to-link has nothing to send")
     (list (make-instance 'event
 			 :time clock
-			 :owner ni
+			 :owner wi
 			 :fn #'output
 			 :args (list link-out
-				     (first to-link-packets))))))
-
-
-(defmethod remove-child ((ni network-interface) (up udp-packet))
-  (with-accessors ((to-host-packets to-host-packets-of)
-		   (to-link-packets to-link-packets-of)) ni
-    (cond ((eq up (first to-host-packets))
-	   (pop to-host-packets))
-	  ((eq up (first to-link-packets))
-	   (pop to-link-packets))
-	  (t (error "removing the wrong child!")))))
+				     (first to-link))))))

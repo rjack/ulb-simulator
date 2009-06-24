@@ -117,7 +117,6 @@
 		(list da))))
 
 
-
 (defmethod handle-input ((ap access-point)
 			 (wlan-data-in wlan-data-in-port)
 			 (da data))
@@ -188,9 +187,9 @@
 (defmethod remove-child ((ap access-point) (da data))
   (with-accessors ((to-wlan-data to-wlan-data-of)
 		   (to-eth-data to-eth-data-of)) ap
-    (cond ((eq da (first to-wlan-data))
+    (cond ((obj= da (first to-wlan-data))
 	   (pop to-wlan-data))
-	  ((eq da (first to-eth-data))
+	  ((obj= da (first to-eth-data))
 	   (pop to-eth-data))
 	  ((null (find da to-wlan-data))
 	   (error "Removing the wrong child")))

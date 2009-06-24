@@ -160,7 +160,7 @@
 
 (defmethod remove-child ((sp softphone) (vo voice))
   (with-accessors ((to-person to-person-of)) sp
-    (if (eq vo (first to-person))
+    (if (obj= vo (first to-person))
 	(pop to-person)
 	(assert (null (find vo to-person)) nil
 		"Removing the wrong child"))
@@ -169,7 +169,7 @@
 
 (defmethod remove-child ((sp softphone) (rp rtp-packet))
   (with-accessors ((to-ulb to-ulb-of)) sp
-    (if (eq rp (first to-ulb))
+    (if (obj= rp (first to-ulb))
 	(pop to-ulb)
 	(assert (null (find rp to-ulb)) nil
 		"Removing the wrong child"))

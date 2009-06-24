@@ -114,7 +114,7 @@
    - talk: the voice must be the first in the thing-to-say list
    - handle-input: the voice must not be in the thing-to-say list"
   (with-accessors ((outgoing-voices outgoing-voices-of)) p
-    (if (eq vo (first outgoing-voices))
+    (if (obj= vo (first outgoing-voices))
 	(pop outgoing-voices)
 	(assert (null (find vo outgoing-voices)) nil
 		"Removing the wrong child"))
