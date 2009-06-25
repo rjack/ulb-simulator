@@ -125,14 +125,23 @@
 	(send-to-a nl)))))
 
 
-(defmethod port-ready ((nl network-link)
-		       (b-udp-out b-udp-out-port))
+(defmethod out-port-ready ((nl network-link)
+			   (b-udp-out b-udp-out-port))
   (when (to-b-packets-of nl)
     (send-to-b nl)))
 
+(defmethod in-port-ready ((nl network-link)
+			  (b-udp-out b-udp-out-port))
+  (when (to-b-packets-of nl)
+    (send-to-b nl)))
 
-(defmethod port-ready ((nl network-link)
-		       (a-udp-out a-udp-out-port))
+(defmethod out-port-ready ((nl network-link)
+			   (a-udp-out a-udp-out-port))
+  (when (to-a-packets-of nl)
+    (send-to-a nl)))
+
+(defmethod in-port-ready ((nl network-link)
+			  (a-udp-out a-udp-out-port))
   (when (to-a-packets-of nl)
     (send-to-a nl)))
 
