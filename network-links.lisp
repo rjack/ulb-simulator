@@ -33,13 +33,13 @@
 
 ;; OVERVIEW
 ;;
-;;     udp-in-port  --> +--------------+ --> udp-out-port
-;;                      | NETWORK-LINK |
-;;                      +--------------+
-;;        iface a       | bandwidth    |       iface b
-;;                      | delay        |
-;;                      | error rate   |
-;;     udp-out-port <-- +--------------+ <-- udp-in-port
+;;     a-in-port  --> +--------------+ --> b-out-port
+;;                    | NETWORK-LINK |
+;;                    +--------------+
+;;      iface a       | bandwidth    |       iface b
+;;                    | delay        |
+;;                    | error rate   |
+;;     a-out-port <-- +--------------+ <-- b-in-port
 ;;
 ;; handle-input udp-packet: output to other endpoint
 
@@ -47,19 +47,19 @@
 (in-package :ulb-sim)
 
 
-(defclass a-udp-in-port (udp-in-port)
+(defclass a-in-port (packet-in-port)
   nil)
 
 
-(defclass a-udp-out-port (udp-out-port)
+(defclass a-out-port (packet-out-port)
   nil)
 
 
-(defclass b-udp-in-port (udp-in-port)
+(defclass b-in-port (packet-in-port)
   nil)
 
 
-(defclass b-udp-out-port (udp-out-port)
+(defclass b-out-port (packet-out-port)
   nil)
 
 
@@ -79,82 +79,112 @@
     :initform (error ":error-rate missing")
     :accessor error-rate-of
     :type (mod 100))
-   (to-a-packets
+   (to-a
     :initform (list)
-    :accessor to-a-packets-of
+    :accessor to-a-of
     :type list)
-   (to-b-packets
+   (to-b
     :initform (list)
-    :accessor to-b-packets-of
+    :accessor to-b-of
     :type list)
-   (a-udp-out
-    :accessor a-udp-out-of
-    :type a-udp-out-port)
-   (a-udp-in
-    :accessor a-udp-in-of
-    :type a-udp-in-port)
-   (b-udp-out
-    :accessor b-udp-out-of
-    :type b-udp-out-port)
-   (b-udp-in
-    :accessor b-udp-in-of
-    :type b-udp-in-port)))
+   (a-out
+    :accessor a-out-of
+    :type a-out-port)
+   (a-in
+    :accessor a-in-of
+    :type a-in-port)
+   (b-out
+    :accessor b-out-of
+    :type b-out-port)
+   (b-in
+    :accessor b-in-of
+    :type b-in-port)))
+
+
+
+
+(defmethod out-port-ready ((nl network-link)
+			   (b-out b-out-port))
+  (when (to-b-of nl)
+    (send-to-b nl)))
+
+(defmethod in-port-ready ((nl network-link)
+			  (b-out b-out-port))
+  (when (to-b-of nl)
+    (send-to-b nl)))
+
+(defmethod out-port-ready ((nl network-link)
+			   (a-out a-out-port))
+  (when (to-a-of nl)
+    (send-to-a nl)))
+
+(defmethod in-port-ready ((nl network-link)
+			  (a-out a-out-port))
+  (when (to-a-of nl)
+    (send-to-a nl)))
+
+
 
 
 (defmethod handle-input ((nl network-link)
-			 (a-udp-in a-udp-in-port)
-			 (up udp-packet))
+			 (a-in a-in-port)
+			 (pkt packet))
   (call-next-method)
-  (with-accessors ((to-b-packets to-b-packets-of)) nl
-    (let ((must-start-p (null to-b-packets)))
-      (setf to-b-packets (append to-b-packets
-				 (list up)))
+  (with-accessors ((to-b to-b-of)) nl
+    (let ((must-start-p (null to-b)))
+      (setf to-b (append to-b
+			 (list pkt)))
       (when must-start-p
 	(send-to-b nl)))))
 
 
 (defmethod handle-input ((nl network-link)
-			 (b-udp-in b-udp-in-port)
-			 (up udp-packet))
+			 (b-in b-in-port)
+			 (pkt packet))
   (call-next-method)
-  (with-accessors ((to-a-packets to-a-packets-of)) nl
-    (let ((must-start-p (null to-a-packets)))
-      (setf to-a-packets (append to-a-packets
-				 (list up)))
+  (with-accessors ((to-a to-a-of)) nl
+    (let ((must-start-p (null to-a)))
+      (setf to-a (append to-a
+			 (list pkt)))
       (when must-start-p
 	(send-to-a nl)))))
 
 
-(defmethod out-port-ready ((nl network-link)
-			   (b-udp-out b-udp-out-port))
-  (when (to-b-packets-of nl)
-    (send-to-b nl)))
 
-(defmethod in-port-ready ((nl network-link)
-			  (b-udp-out b-udp-out-port))
-  (when (to-b-packets-of nl)
-    (send-to-b nl)))
 
-(defmethod out-port-ready ((nl network-link)
-			   (a-udp-out a-udp-out-port))
-  (when (to-a-packets-of nl)
-    (send-to-a nl)))
+(defmethod leaving ((nl network-link) (a-out a-out-port) (pkt packet))
+  (with-accessors ((to-a to-a-of)) nl
+    (assert (obj= pkt (first to-a)) nil
+	    "leaving nl a-out pkt: not the first pkt to-a!")
+    (pop to-a)))
 
-(defmethod in-port-ready ((nl network-link)
-			  (a-udp-out a-udp-out-port))
-  (when (to-a-packets-of nl)
-    (send-to-a nl)))
+
+(defmethod leaving ((nl network-link) (a-out a-out-port) (pkt packet))
+  (with-accessors ((to-b to-b-of)) nl
+    (assert (obj= pkt (first to-b)) nil
+	    "leaving nl a-out pkt: not the first pkt to-b!")
+    (pop to-b)))
+
+
+
+
+(defmethod output ((nl network-link) (out out-port) (pkt packet))
+  (handler-bind ((port-not-connected #'abort)
+		 (out-port-busy #'wait)
+		 (in-port-busy #'wait))
+    (call-next-method)))
+
 
 
 (defmethod send-to-a ((nl network-link))
-  (with-accessors ((to-a-packets to-a-packets-of)
-		   (a-udp-out a-udp-out-of)
+  (with-accessors ((to-a to-a-of)
+		   (a-out a-out-of)
 		   (bandwidth bandwidth-of)
 		   (error-rate error-rate-of)
 		   (delay delay-of)
 		   (clock clock-of)) nl
-    (assert to-a-packets nil "send-to-a has nothing to send")
-    (let ((fst (first to-a-packets)))
+    (assert to-a nil "send-to-a has nothing to send")
+    (let ((fst (first to-a)))
       (if (< (random 101) error-rate)
 	  ;; transmission error! packet discarded
 	  (remove-child nl fst)
@@ -166,19 +196,19 @@
 					   bandwidth))
 			       :owner nl
 			       :fn #'output
-			       :args (list a-udp-out
+			       :args (list a-out
 					   fst)))))))
 
 
 (defmethod send-to-b ((nl network-link))
-  (with-accessors ((to-b-packets to-b-packets-of)
-		   (b-udp-out b-udp-out-of)
+  (with-accessors ((to-b to-b-of)
+		   (b-out b-out-of)
 		   (bandwidth bandwidth-of)
 		   (error-rate error-rate-of)
 		   (delay delay-of)
 		   (clock clock-of)) nl
-    (assert to-b-packets nil "send-to-b has nothing to send")
-    (let ((fst (first to-b-packets)))
+    (assert to-b nil "send-to-b has nothing to send")
+    (let ((fst (first to-b)))
       (if (< (random 101) error-rate)
 	  ;; transmission error! packet discarded
 	  (remove-child nl fst)
@@ -190,15 +220,5 @@
 					   bandwidth))
 			       :owner nl
 			       :fn #'output
-			       :args (list b-udp-out
+			       :args (list b-out
 					   fst)))))))
-
-
-(defmethod remove-child ((nl network-link) (up udp-packet))
-  (with-accessors ((to-b-packets to-b-packets-of)
-		   (to-a-packets to-a-packets-of)) nl
-    (cond ((obj= up (first to-b-packets))
-	   (pop to-b-packets))
-	  ((obj= up (first to-a-packets))
-	   (pop to-a-packets))
-	  (t (error "removing the wrong child!")))))
