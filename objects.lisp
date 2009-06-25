@@ -164,6 +164,11 @@
     :type (or null udp-packet data))))
 
 
+(defclass wifi-ack-frame (wifi-frame)
+  ((payload
+    :initform nil)))
+
+
 (defmethod size ((pkt packet))
   (+ (overhead-size pkt)
      (size (payload pkt))))
