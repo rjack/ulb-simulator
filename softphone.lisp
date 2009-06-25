@@ -32,9 +32,9 @@
 
 ;; OVERVIEW
 ;;
-;;     voice-in-port  --> +-----------+ --> packet-out-port
+;;     voice-in-port  --> +-----------+ --> rtp-out-port
 ;;         PERSON         | SOFTPHONE |          ULB
-;;     voice-out-port <-- +-----------+ <-- packet-in-port
+;;     voice-out-port <-- +-----------+ <-- rtp-in-port
 
 
 (in-package :ulb-sim)
@@ -59,12 +59,12 @@
    (voice-out
     :accessor voice-out-of
     :type voice-out-port)
-   (packet-in
-    :accessor packet-in-of
-    :type packet-in-port)
-   (packet-out
-    :accessor packet-out-of
-    :type packet-out-port)))
+   (rtp-in
+    :accessor rtp-in-of
+    :type rtp-in-port)
+   (rtp-out
+    :accessor rtp-out-of
+    :type rtp-out-port)))
 
 
 
@@ -76,11 +76,11 @@
   (when (to-person-of sp)
     (send-to-person sp)))
 
-(defmethod in-port-ready ((sp softphone) (packet-out packet-out-port))
+(defmethod in-port-ready ((sp softphone) (rtp-out rtp-out-port))
   (when (to-ulb-of sp)
     (send-to-ulb sp)))
 
-(defmethod out-port-ready ((sp softphone) (packet-out packet-out-port))
+(defmethod out-port-ready ((sp softphone) (rtp-out rtp-out-port))
   (when (to-ulb-of sp)
     (send-to-ulb sp)))
 
@@ -123,13 +123,50 @@
       (send-to-ulb sp))))
 
 
-(defmethod handle-input ((sp softphone) (in packet-in-port)
+(defmethod handle-input ((sp softphone) (in rtp-in-port)
 			 (rp rtp-packet))
   (call-next-method)
   (let ((must-start-p (null (to-person-of sp))))
     (receive rp)
     (when must-start-p
       (send-to-person sp))))
+
+
+
+
+(defmethod leaving ((sp softphone) (voice-out voice-out-port)
+		    (vo voice))
+  (with-accessors ((to-person to-person-of)) sp
+    (assert (obj= vo (first to-person)) nil
+	    "leaving sp voice-out vo: not the first voice to-person!")
+    (pop to-person)))
+
+
+(defmethod leaving ((sp softphone) (rtp-out rtp-out-port)
+		    (rtp rtp-packet))
+  (with-accessors ((to-ulb to-ulb-of)) sp
+    (assert (obj= rtp (first to-ulb)) nil
+	    "output sp rtp-out rtp: not the first rtp-packet to-ulb!")
+    (pop to-ulb)))
+
+
+
+
+(defmethod output ((sp softphone) (voice-out voice-out-port)
+		   (vo voice))
+  (handler-bind ((port-not-connected #'abort)
+		 (out-port-busy #'wait)
+		 (in-port-busy #'abort))
+    (call-next-method)))
+
+
+(defmethod output ((sp softphone) (rtp-out rtp-out-port)
+		   (rtp rtp-packet))
+  (handler-bind ((port-not-connected #'abort)
+		 (out-port-busy #'wait)
+		 (in-port-busy #'wait))
+    (call-next-method)))
+
 
 
 
@@ -141,7 +178,7 @@
 			 :time (clock-of sp)
 			 :owner sp
 			 :fn #'output
-			 :args (list (packet-out-of sp)
+			 :args (list (rtp-out-of sp)
 				     (first to-ulb))))))
 
 
@@ -155,22 +192,3 @@
 			 :fn #'output
 			 :args (list (voice-out-of sp)
 				     (first to-person))))))
-
-
-
-(defmethod remove-child ((sp softphone) (vo voice))
-  (with-accessors ((to-person to-person-of)) sp
-    (if (obj= vo (first to-person))
-	(pop to-person)
-	(assert (null (find vo to-person)) nil
-		"Removing the wrong child"))
-    (call-next-method)))
-
-
-(defmethod remove-child ((sp softphone) (rp rtp-packet))
-  (with-accessors ((to-ulb to-ulb-of)) sp
-    (if (obj= rp (first to-ulb))
-	(pop to-ulb)
-	(assert (null (find rp to-ulb)) nil
-		"Removing the wrong child"))
-    (call-next-method)))
