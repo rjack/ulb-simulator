@@ -211,3 +211,15 @@
 (defmethod rtp-packet->voice ((rp rtp-packet) &key codec-bw)
   (make-instance 'voice :duration (/ (size (payload-of rp))
 				     codec-bw)))
+
+
+(defmethod rtp-packet->udp-packet ((rp rtp-packet) &key src dst)
+  (make-instance 'udp-packet
+		 :source src
+		 :destination dst
+		 :payload rp))
+
+
+(defmethod udp-packet->wifi-frame ((up udp-packet))
+  (make-instance 'wifi-frame
+		 :payload up))

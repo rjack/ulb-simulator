@@ -54,17 +54,17 @@
     :initarg :a-ulb
     :initform (error ":a-ulb missing")
     :accessor a-ulb-of
-    :type network-interface)
+    :type wifi-interface)
    (a-wlan0
     :initarg :a-wlan0
     :initform (error ":a-wlan0 missing")
     :accessor a-wlan0-of
-    :type network-interface)
+    :type wifi-interface)
    (a-wlan1
     :initarg :a-wlan1
     :initform (error ":a-wlan1 missing")
     :accessor a-wlan1-of
-    :type network-interface)
+    :type wifi-interface)
    (a-wifi0
     :initarg :a-wifi0
     :initform (error ":a-wifi0 missing")
@@ -79,12 +79,12 @@
     :initarg :a-ap0-wlan
     :initform (error ":a-ap0-wlan missing")
     :accessor a-ap0-wlan-of
-    :type network-interface)
+    :type wifi-interface)
    (a-ap1-wlan
     :initarg :a-ap1-wlan
     :initform (error ":a-ap1-wlan missing")
     :accessor a-ap1-wlan-of
-    :type network-interface)
+    :type wifi-interface)
    (a-ap0
     :initarg :a-ap0
     :initform (error ":a-ap0 missing")

@@ -128,7 +128,9 @@
 
 (defmethod receive ((wi wifi-interface) (wf wifi-frame))
   (remove-child wi wf)
-  (let ((rtp (wifi-frame->rtp-packet wf)))
+  (let ((rtp (the rtp-packet
+	       (payload-of (the udp-packet
+			     (payload-of wf))))))
     (with-accessors ((to-host to-host-of)) wi
       (setf to-host
 	    (append to-host
@@ -137,7 +139,8 @@
 
 (defmethod receive ((wi wifi-interface) (rtp rtp-packet))
   (remove-child wi rtp)
-  (let ((wf (rtp-packet->wifi-frame rtp)))
+  (let ((wf (udp-packet->wifi-frame
+	     (rtp-packet->udp-packet rtp :src (id-of wi) :dst nil))))
     (with-accessors ((to-link to-link-of)) wi
       (setf to-link
 	    (append to-link
@@ -149,7 +152,7 @@
 			 (link-in link-in-port)
 			 (wf wifi-frame))
   (call-next-method)
-  (let ((must-start-p (null to-host)))
+  (let ((must-start-p (null (to-host-of wi))))
     (receive wi wf)
     (when must-start-p
       (send-to-host wi))))
@@ -174,7 +177,7 @@
 			 (host-in host-in-port)
 			 (rtp rtp-packet))
   (call-next-method)
-  (let ((must-start-p (null to-link)))
+  (let ((must-start-p (null (to-link-of wi))))
     (receive wi rtp)
     (when must-start-p
       (send-to-link wi))))
@@ -186,7 +189,7 @@
 		   (wf wifi-frame))
   "Sending a frame, create the ack-timeout.
    Don't remove the frame, it must be acked!"
-  (assert (obj= rtp (first (to-link-of wi))) nil
+  (assert (obj= wf (first (to-link-of wi))) nil
 	  "output wi link-out wf: not the first wifi frame to-host!")
   (let ((ack-tmout (make-instance 'event
 				  :owner wi
