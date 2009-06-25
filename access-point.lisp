@@ -156,15 +156,15 @@
 
 (defmethod leaving ((ap access-point) (eth-out eth-out-port)
 		    (p packet))
-  (assert (obj= p (first (to-eth-of ap)) nil
-		"leaving ap eth-out p: not the first packet to-eth!"))
+  (assert (obj= p (first (to-eth-of ap))) nil
+	  "leaving ap eth-out p: not the first packet to-eth!")
   (pop (to-eth-of ap)))
 
 
 (defmethod leaving ((ap access-point) (wlan-out wlan-out-port)
 		    (p packet))
-  (assert (obj= p (first (to-wlan-of ap)) nil
-		"leaving ap wlan-out p: not the first packet to-wlan!"))
+  (assert (obj= p (first (to-wlan-of ap))) nil
+	  "leaving ap wlan-out p: not the first packet to-wlan!")
   (pop (to-wlan-of ap)))
 
 
