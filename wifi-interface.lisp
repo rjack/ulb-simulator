@@ -168,7 +168,7 @@
   "Stop and go: when receiving an ack, cancel the ack-timeout and
    unlock the host-in-port."
   (call-next-method)
-  (remove-child ack)
+  (remove-child wi ack)
   (cancel-event (ack-timeout-of wi))
   (list (make-instance 'event
 		       :owner wi
