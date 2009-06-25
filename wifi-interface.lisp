@@ -101,6 +101,8 @@
   nil)
 
 
+
+
 (defmethod in-port-ready ((wi wifi-interface)
 			  (host-out host-out-port))
   (when (to-host-of wi)
@@ -126,6 +128,7 @@
 
 
 
+
 (defmethod receive ((wi wifi-interface) (wf wifi-frame))
   (remove-child wi wf)
   (let ((rtp (the rtp-packet
@@ -145,6 +148,7 @@
       (setf to-link
 	    (append to-link
 		    (list wf))))))
+
 
 
 
@@ -184,11 +188,13 @@
 
 
 
-(defmethod output ((wi wifi-interface)
-		   (link-out link-out-port)
-		   (wf wifi-frame))
-  "Sending a frame, create the ack-timeout.
-   Don't remove the frame, it must be acked!"
+
+(defmethod leaving ((wi wifi-interface)
+		    (link-out link-out-port)
+		    (wf wifi-frame))
+  "Frame is leaving: set the ack timeout and don't remove the local
+   copy of wf, since it may be needed if the sent one will not be
+   acked."
   (assert (obj= wf (first (to-link-of wi))) nil
 	  "output wi link-out wf: not the first wifi frame to-host!")
   (let ((ack-tmout (make-instance 'event
@@ -203,12 +209,13 @@
 	  (call-next-method))))
 
 
-(defmethod output ((wi wifi-interface)
-		   (host-out host-out-port)
-		   (rtp rtp-packet))
-  (assert (obj= rtp (pop (to-host-of wi))) nil
+(defmethod leaving ((wi wifi-interface)
+		    (host-out host-out-port)
+		    (rtp rtp-packet))
+  (assert (obj= rtp (first (to-host-of wi))) nil
 	  "output wi host-out rtp: not the first rtp packet to-host!")
-  (remove-child wi rtp))
+  (pop (to-host-of wi)))
+
 
 
 (defmethod output ((wi wifi-interface)
@@ -244,4 +251,4 @@
 			 :owner wi
 			 :fn #'output
 			 :args (list link-out
-				     (first to-link))))))
+				     (clone (first to-link)))))))
