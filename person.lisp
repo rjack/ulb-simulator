@@ -33,7 +33,7 @@
 ;; OVERVIEW
 ;;
 ;;     +--------+ --> voice-out-port
-;;     | PERSON |
+;;     | PERSON |       SOFTPHONE
 ;;     +--------+ <-- voice-in-port
 
 
@@ -47,10 +47,10 @@
     :initform (error ":name missing")
     :reader name-of
     :type string)
-   (outgoing-voices
-    :initarg :outgoing-voices
+   (to-phone
+    :initarg :to-phone
     :initform nil
-    :accessor outgoing-voices-of
+    :accessor to-phone-of
     :type list
     :documentation "List of voices")
    (voice-in
@@ -74,37 +74,16 @@
 
 
 
-;; PERSON BEHAVIOUR
 
+(defmethod in-port-ready ((p person) (voice-out voice-out-port))
+  (when (to-phone-of p)
+    (talk p)))
 
-(defmethod port-ready ((p person) (voice-out voice-out-port))
-  (when (outgoing-voices-of p)
+(defmethod out-port-ready ((p person) (voice-out voice-out-port))
+  (when (to-phone-of p)
     (talk p)))
 
 
-(defmethod talk ((p person))
-  (with-accessors ((outgoing-voices outgoing-voices-of) (clock clock-of)
-		   (voice-out voice-out-of)) p
-    (assert (not (null outgoing-voices)) nil
-	    "Talk but nothing to say!")
-    (list (make-instance 'event
-			 :owner p
-			 :time clock
-			 :fn #'output
-			 :args (list voice-out
-				     (first outgoing-voices))))))
-
-
-(defmethod output ((p person) (voice-out voice-out-port) (vo voice))
-  (with-accessors ((outgoing-voices outgoing-voices-of)) p
-    (assert (obj= vo (first outgoing-voices)) nil
-	    "output p voice-out vo: not the first outgoing-voice!")
-    (remove-child vo)
-    (pop outgoing-voices)
-    (handler-bind ((port-not-connected #'abort)
-		   (out-port-busy #'wait)
-		   (in-port-busy #'abort))
-      (call-next-method))))
 
 
 (defmethod handle-input ((p person) (in voice-in-port) (vo voice))
@@ -112,3 +91,36 @@
   (call-next-method)
   (remove-child p vo)
   nil)
+
+
+
+
+(defmethod talk ((p person))
+  (with-accessors ((to-phone to-phone-of) (clock clock-of)
+		   (voice-out voice-out-of)) p
+    (assert (not (null to-phone)) nil
+	    "Talk but nothing to say!")
+    (list (make-instance 'event
+			 :owner p
+			 :time clock
+			 :fn #'output
+			 :args (list voice-out
+				     (first to-phone))))))
+
+
+
+
+(defmethod leaving ((p person) (voice-out voice-out-port) (vo voice))
+  (with-accessors ((to-phone to-phone-of)) p
+    (assert (obj= vo (first to-phone)) nil
+	    "leaving p voice-out vo: not the first outgoing-voice!")
+    (pop to-phone)))
+
+
+
+
+(defmethod output ((p person) (voice-out voice-out-port) (vo voice))
+  (handler-bind ((port-not-connected #'abort)
+		 (out-port-busy #'wait)
+		 (in-port-busy #'abort))
+    (call-next-method)))
