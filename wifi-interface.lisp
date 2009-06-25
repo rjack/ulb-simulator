@@ -152,7 +152,7 @@
   (let ((must-start-p (null to-host)))
     (receive wi wf)
     (when must-start-p
-      (send-to-host wi)))))
+      (send-to-host wi))))
 
 
 (defmethod handle-input ((wi wifi-interface)
@@ -214,7 +214,7 @@
   (handler-bind ((port-not-connected #'abort)
 		 (out-port-busy #'wait)
 		 (in-port-busy #'wait))
-    (call-next-method)))))
+    (call-next-method)))
 
 
 
@@ -222,7 +222,7 @@
   (with-accessors ((to-host to-host-of)
 		   (host-out host-out-of)
 		   (clock clock-of)) wi
-    (assert to-host wil "send-to-host has nothing to send")
+    (assert to-host nil "send-to-host has nothing to send")
     (list (make-instance 'event
 			 :time clock
 			 :owner wi
@@ -235,7 +235,7 @@
   (with-accessors ((to-link to-link-of)
 		   (link-out link-out-of)
 		   (clock clock-of)) wi
-    (assert to-link wil "send-to-link has nothing to send")
+    (assert to-link nil "send-to-link has nothing to send")
     (list (make-instance 'event
 			 :time clock
 			 :owner wi
