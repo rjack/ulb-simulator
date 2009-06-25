@@ -195,7 +195,9 @@
   "Frame is leaving: set the ack timeout and don't remove the local
    copy of wf, since it may be needed if the sent one will not be
    acked."
-  (assert (obj= wf (first (to-link-of wi))) nil
+  (assert (eql (size wf)
+	       (size (first (to-link-of wi))))
+	  nil
 	  "output wi link-out wf: not the first wifi frame to-host!")
   (let ((ack-tmout (make-instance 'event
 				  :owner wi
