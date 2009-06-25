@@ -111,16 +111,21 @@
 ;; header.
 
 
+(defun clone (obj)
+  (when (not (null obj))
+    (let ((copy (make-instance (type-of obj))))
+      (transform copy obj)
+      copy)))
+
 
 (defclass packet (object)
   ((overhead-size
     :initform (bytes 0)
-    :accessor overhead-size
+    :accessor overhead-size-of
     :type fixnum)
    (payload
     :initarg :payload
-    :initform (error "missing :payload")
-    :accessor payload)))
+    :accessor payload-of)))
 
 
 (defclass data (packet)
@@ -129,8 +134,7 @@
     :accessor payload-of)
    (payload-size
     :initarg :payload-size
-    :initform (error "missing :payload-size")
-    :accessor payload-size
+    :accessor payload-size-of
     :type (integer 0))))
 
 
@@ -148,12 +152,10 @@
     :initform (bytes 8))
    (source
     :initarg :source
-    :initform (error "missing :source")
-    :accessor source)
+    :accessor source-of)
    (destination
     :initarg :destination
-    :initform (error "missing :destination")
-    :accessor destination)))
+    :accessor destination-of)))
 
 
 (defclass wifi-frame (packet)
@@ -170,12 +172,12 @@
 
 
 (defmethod size ((pkt packet))
-  (+ (overhead-size pkt)
-     (size (payload pkt))))
+  (+ (overhead-size-of pkt)
+     (size (payload-of pkt))))
 
 
 (defmethod size ((pkt data))
-  (payload-size pkt))
+  (payload-size-of pkt))
 
 
 (defmethod size ((n null))
@@ -185,7 +187,6 @@
 (defclass voice (object)
   ((duration
     :initarg :duration
-    :initform (error ":duration missing")
     :accessor duration-of
     :type fixnum)))
 
@@ -223,3 +224,24 @@
 (defmethod udp-packet->wifi-frame ((up udp-packet))
   (make-instance 'wifi-frame
 		 :payload up))
+
+
+(defmethod transform ((copy packet) (orig packet))
+  (when (slot-boundp orig 'overhead-size)
+    (setf (overhead-size-of copy) (overhead-size-of copy)))
+  (when (slot-boundp orig 'payload)
+    (setf (payload-of copy) (clone (payload-of orig)))))
+
+
+(defmethod transform ((copy data) (orig data))
+  (when (slot-boundp orig 'payload-size)
+    (setf (payload-size-of copy) (payload-size-of orig)))
+  (call-next-method))
+
+
+(defmethod transform ((copy udp-packet) (orig udp-packet))
+  (when (slot-boundp orig 'source)
+    (setf (source-of copy) (source-of orig)))
+  (when (slot-boundp orig 'destination)
+    (setf (destination-of copy) (destination-of orig)))
+  (call-next-method))
