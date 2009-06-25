@@ -21,7 +21,7 @@
 			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "softphone"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
-		 (:file "network-interfaces"
+		 (:file "wifi-interface"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
 		 (:file "network-links"
 			:depends-on ("ports" "objects" "ulb-sim.package"))
@@ -34,6 +34,6 @@
 				     "person"
 				     "access-point"
 				     "softphone"
-				     "network-interfaces"
+				     "wifi-interface"
 				     "network-links"
 				     "proxy-server"))))
