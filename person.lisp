@@ -96,10 +96,15 @@
 
 
 (defmethod output ((p person) (voice-out voice-out-port) (vo voice))
-  (handler-bind ((port-not-connected #'abort)
-		 (out-port-busy #'wait)
-		 (in-port-busy #'abort))
-    (call-next-method)))
+  (with-accessors ((outgoing-voices outgoing-voices-of)) p
+    (assert (obj= vo (first outgoing-voices)) nil
+	    "output p voice-out vo: not the first outgoing-voice!")
+    (remove-child vo)
+    (pop outgoing-voices)
+    (handler-bind ((port-not-connected #'abort)
+		   (out-port-busy #'wait)
+		   (in-port-busy #'abort))
+      (call-next-method))))
 
 
 (defmethod handle-input ((p person) (in voice-in-port) (vo voice))
@@ -107,15 +112,3 @@
   (call-next-method)
   (remove-child p vo)
   nil)
-
-
-(defmethod remove-child ((p person) (vo voice))
-  "persons remove a voice in:
-   - talk: the voice must be the first in the thing-to-say list
-   - handle-input: the voice must not be in the thing-to-say list"
-  (with-accessors ((outgoing-voices outgoing-voices-of)) p
-    (if (obj= vo (first outgoing-voices))
-	(pop outgoing-voices)
-	(assert (null (find vo outgoing-voices)) nil
-		"Removing the wrong child"))
-    (call-next-method)))
