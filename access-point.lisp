@@ -33,9 +33,9 @@
 
 ;; OVERVIEW
 ;;
-;;     wlan-data-in-port  --> +--------------+ --> eth-data-out-port
-;;           WLAN0            | ACCESS-POINT |           ETH0
-;;     wlan-data-out-port <-- +--------------+ <-- eth-data-in-port
+;;     wlan-in-port  --> +--------------+ --> eth-out-port
+;;         WLAN0         | ACCESS-POINT |        ETH0
+;;     wlan-out-port <-- +--------------+ <-- eth-in-port
 ;;
 ;; handle-input wlan0: output payload to ETH0
 ;;                     output wifi frame ack to WLAN
@@ -46,86 +46,91 @@
 (in-package :ulb-sim)
 
 
-(defclass wlan-data-in-port (data-in-port)
+(defclass wlan-in-port (data-in-port)
   nil)
 
-(defclass wlan-data-out-port (data-out-port)
+(defclass wlan-out-port (data-out-port)
   nil)
 
-(defclass eth-data-in-port (data-in-port)
+(defclass eth-in-port (data-in-port)
   nil)
 
-(defclass eth-data-out-port (data-out-port)
+(defclass eth-out-port (data-out-port)
   nil)
 
 
 (defclass access-point (simulator)
-  ((to-wlan-data
+  ((to-wlan
     :initform (list)
-    :accessor to-wlan-data-of
+    :accessor to-wlan-of
     :type list)
-   (to-eth-data
+   (to-eth
     :initform (list)
-    :accessor to-eth-data-of
+    :accessor to-eth-of
     :type list)
-   (wlan-data-in
-    :accessor wlan-data-in-of
-    :type wlan-data-in-port)
-   (wlan-data-out
-    :accessor wlan-data-out-of
-    :type wlan-data-out-port)
-   (eth-data-in
-    :accessor eth-data-in-of
-    :type eth-data-in-port)
-   (eth-data-out
-    :accessor eth-data-out-of
-    :type eth-data-out-port)))
+   (wlan-in
+    :accessor wlan-in-of
+    :type wlan-in-port)
+   (wlan-out
+    :accessor wlan-out-of
+    :type wlan-out-port)
+   (eth-in
+    :accessor eth-in-of
+    :type eth-in-port)
+   (eth-out
+    :accessor eth-out-of
+    :type eth-out-port)))
+
 
 
 
 (defmethod in-port-ready ((ap access-point)
-			  (wlan-data-out wlan-data-out-port))
-  (when (to-wlan-data-of ap)
+			  (wlan-out wlan-out-port))
+  (when (to-wlan-of ap)
     (send-to-wlan ap)))
 
 (defmethod out-port-ready ((ap access-point)
-			   (wlan-data-out wlan-data-out-port))
-  (when (to-wlan-data-of ap)
+			   (wlan-out wlan-out-port))
+  (when (to-wlan-of ap)
     (send-to-wlan ap)))
 
 (defmethod in-port-ready ((ap access-point)
-			  (eth-data-out eth-data-out-port))
-  (when (to-eth-data-of ap)
+			  (eth-out eth-out-port))
+  (when (to-eth-of ap)
     (send-to-eth ap)))
 
 (defmethod out-port-ready ((ap access-point)
-			   (eth-data-out eth-data-out-port))
-  (when (to-eth-data-of ap)
+			   (eth-out eth-out-port))
+  (when (to-eth-of ap)
     (send-to-eth ap)))
+
+
 
 
 
 (defmethod enqueue-to-eth ((ap access-point) (da data))
-  (setf (to-eth-data-of ap)
-	(append (to-eth-data-of ap)
+  (setf (to-eth-of ap)
+	(append (to-eth-of ap)
 		(list da))))
 
 
 (defmethod enqueue-to-wlan ((ap access-point) (da data))
-  (setf (to-wlan-data-of ap)
-	(append (to-wlan-data-of ap)
+  (setf (to-wlan-of ap)
+	(append (to-wlan-of ap)
 		(list da))))
 
 
+
+
 (defmethod handle-input ((ap access-point)
-			 (wlan-data-in wlan-data-in-port)
+			 (wlan-in wlan-in-port)
 			 (da data))
   "wlan -> eth"
   (call-next-method)
-  (with-accessors ((to-eth-data to-eth-data-of)
-		   (to-wlan-data to-wlan-data-of)) ap
-    (let ((must-send-eth-p (null to-eth-data))
-	  (must-send-wlan-p (null to-wlan-data)))
+  (with-accessors ((to-eth to-eth-of)
+		   (to-wlan to-wlan-of)) ap
+    (let ((must-send-eth-p (null to-eth))
+	  (must-send-wlan-p (null to-wlan)))
       (enqueue-to-wlan ap (make-instance 'data
 					 :payload-size (bytes 32)))
       (enqueue-to-eth ap da)
@@ -136,16 +141,33 @@
 
 
 (defmethod handle-input ((ap access-point)
-			 (eth-data-in eth-data-in-port)
+			 (eth-in eth-in-port)
 			 (da data))
   "eth -> wlan"
   (call-next-method)
-  (with-accessors ((to-wlan-data to-wlan-data-of)) ap
-    (let ((must-send-p (null to-wlan-data)))
+  (with-accessors ((to-wlan to-wlan-of)) ap
+    (let ((must-send-p (null to-wlan)))
       (enqueue-to-wlan ap da)
       (when must-send-p
 	(send-to-wlan ap)))))
 
+
+
+
+(defmethod output ((ap access-point) (eth-out eth-out-port) (p packet))
+  (assert (obj= p (first (to-eth-of ap)) nil
+	  "output ap eth-out p: not the first packet to-eth!"))
+  (remove-child)
+  (pop (to-eth-of ap))
+  (call-next-method))
+
+
+(defmethod output ((ap access-point) (wlan-out wlan-out-port) (p packet))
+  (assert (obj= p (first (to-wlan-of ap)) nil
+	  "output ap wlan-out p: not the first packet to-wlan!"))
+  (remove-child)
+  (pop (to-wlan-of ap))
+  (call-next-method))
 
 
 (defmethod output ((ap access-point) (out out-port) (obj object))
@@ -156,41 +178,30 @@
 
 
 
+
 (defmethod send-to-wlan ((ap access-point))
-  (with-accessors ((to-wlan-data to-wlan-data-of)
+  (with-accessors ((to-wlan to-wlan-of)
 		   (clock clock-of)
-		   (wlan-data-out wlan-data-out-of)) ap
-    (assert to-wlan-data nil
+		   (wlan-out wlan-out-of)) ap
+    (assert to-wlan nil
 	    "send-to-wlan has nothing to send!")
     (list (make-instance 'event
 			 :time clock
 			 :owner ap
 			 :fn #'output
-			 :args (list wlan-data-out
-				     (first to-wlan-data))))))
+			 :args (list wlan-out
+				     (first to-wlan))))))
 
 
 (defmethod send-to-eth ((ap access-point))
-  (with-accessors ((to-eth-data to-eth-data-of)
+  (with-accessors ((to-eth to-eth-of)
 		   (clock clock-of)
-		   (eth-data-out eth-data-out-of)) ap
-    (assert to-eth-data nil
+		   (eth-out eth-out-of)) ap
+    (assert to-eth nil
 	    "send-to-eth has nothing to send!")
     (list (make-instance 'event
 			 :time clock
 			 :owner ap
 			 :fn #'output
-			 :args (list eth-data-out
-				     (first to-eth-data))))))
-
-
-(defmethod remove-child ((ap access-point) (da data))
-  (with-accessors ((to-wlan-data to-wlan-data-of)
-		   (to-eth-data to-eth-data-of)) ap
-    (cond ((obj= da (first to-wlan-data))
-	   (pop to-wlan-data))
-	  ((obj= da (first to-eth-data))
-	   (pop to-eth-data))
-	  ((null (find da to-wlan-data))
-	   (error "Removing the wrong child")))
-    (call-next-method)))
+			 :args (list eth-out
+				     (first to-eth))))))
