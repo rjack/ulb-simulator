@@ -78,6 +78,14 @@
   nil)
 
 
+(defclass netlink-out-port (packet-out-port)
+  nil)
+
+
+(defclass netlink-in-port (packet-in-port)
+  nil)
+
+
 (defclass data-in-port (packet-in-port)
   nil)
 

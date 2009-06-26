@@ -35,6 +35,7 @@
 ;;
 ;;     link-in-port  --> +----------------+ --> host-out-port
 ;;         LINK          | WIFI-INTERFACE |        HOST
+;;                       |                | --> ted-out-port
 ;;     link-out-port <-- +----------------+ <-- host-in-port
 ;;
 
@@ -60,9 +61,17 @@
   nil)
 
 
+(defclass ted-out-port (netlink-out-port)
+  nil)
+
 
 (defclass wifi-interface (simulator)
-  ((to-link
+  ((fw-cap
+    :initarg :fw-cap
+    :reader fw-cap-of
+    :type list
+    :documentation "(:ack :nak)"
+   (to-link
     :initform (list)
     :accessor to-link-of
     :type list)
@@ -91,6 +100,8 @@
 (defmethod ack-timeout-expired ((wi wifi-interface))
   (assert (to-link-of wi) nil
 	  "Ack timeout expired, but nothing to re-send!")
+  (when (find :nack (fw-cap-of wi))
+    (notify-nak wi))
   (send-to-link wi))
 
 
