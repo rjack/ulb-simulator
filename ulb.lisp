@@ -45,6 +45,28 @@
 (in-package :ulb-sim)
 
 
+(defclass wlan-in-port (wifi-frame-in-port)
+  nil)
+
+
+(defclass wlan-out-port (wifi-frame-out-port)
+  ((state
+    :initarg :working
+    :accessor state-of
+    :type keyword)))
+
+
+(defclass ted-in-port (netlink-in-port)
+  nil)
+
+
+(defclass iface-status ()
+  ((value
+    :initform :working
+    :accessor value-of
+    :type (member :working :suspected :disabled))))
+
+
 (defclass ulb (simulator)
   ((phone-in
     :accessor phone-in-of
@@ -55,6 +77,14 @@
    (ted0-in
     :accessor ted0-in-of
     :type ted-in-port)
+   (wlan0-status
+    :initform (make-instance 'iface-status)
+    :accessor wlan0-status-of
+    :type iface-status)
+   (wlan1-status
+    :initform (make-instance 'iface-status)
+    :accessor wlan1-status-of
+    :type iface-status)
    (wlan0-in
     :accessor wlan0-in-of
     :type wlan-in-port)
@@ -70,10 +100,20 @@
    (ted1-in
     :accessor ted1-in-of
     :type ted-in-port)
+   (sent
+    :initform (list)
+    :accessor sent-of
+    :type list)
    (to-wlan
+    :initform (list)
     :accessor to-wlan-of
     :type list)
+   (to-wlan-urg
+    :initform (list)
+    :accessor to-wlan-urg-of
+    :type list)
    (to-phone
+    :initform (list)
     :accessor to-phone-of
     :type list)))
 
@@ -95,23 +135,36 @@
       eol-ev)))
 
 
+(defmethod first-to-send ((u ulb))
+  (or (first (to-wlan-urg-of u))
+      (first (to-wlan-of u))))
+
+
+(defmethod best-out-port ((u ulb))
+  (if (eql :working (value-of (wlan0-status-of w)))
+      (wlan0-out-of u)
+      (wlan1-out-of u)))
+
+
 (defmethod input-evs ((u ulb) (phone-in phone-in-port)
-			 (rtp rtp-packet))
+		      (rtp rtp-packet))
   (call-next-method)
-  (let ((must-send-p (null (to-wlan-of u))))
-      (cons (receive u phone-in rtp)
+  (let ((must-send-p (null (first-to-send u))))
+      (cons (the event (receive u phone-in rtp))
 	    (when must-send-p
-	      (send-datagram (best-interface u)
-			     (first-to-send u))))))
+	      (send-datagram (the wlan-out-port
+			       (best-out-port u)
+			     (the ulb-dgram-struct
+			       (first-to-send u))))))))
 
 
 (defmethod input-evs ((u ulb) (wlan-in wlan-in-port)
-			 (rtp rtp-packet))
+		      (rtp rtp-packet))
 
 
 
 (defmethod input-evs ((u ulb) (wlan-notify-in wlan-notify-in-port)
-			 (ntf notification))
+		      (ntf notification))
   "ack or nack?")
 
 
@@ -125,9 +178,5 @@
   "Record in full path log")
 
 
-(defmethod send-datagram ((u ulb) (uwi ulb-wifi-interface)
-			  (dg ulb-struct-datagram))
-  "reset ping timeout
-   record log
-   if not ping store datagram"
-  (error "TODO"))
+(defmethod send-datagram ((u ulb) (wlan-out wlan-out-port)
+			  (uds ulb-dgram-struct))
