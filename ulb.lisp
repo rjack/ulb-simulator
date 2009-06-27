@@ -33,165 +33,81 @@
 
 ;; OVERVIEW
 ;;
-;;     udp-in-port  --> +-----+ --> udp-out-port
+;;   phone-in-port  --> +-----+ --> wlan0-out-port
 ;;                      | ULB |       WLAN0
-;;      LOOPBACK        |     | <--  udp-in-port
-;;                      |     |
-;;      INTERFACE       |     | --> udp-out-port
+;;                      |     | <-- wlan0-in-port
+;;       SOFTPHONE      |     |
+;;                      |     | --> wlan1-out-port
 ;;                      |     |       WLAN1
-;;     udp-out-port <-- +-----+ <--  udp-in-port
+;;   phone-out-port <-- +-----+ <-- wlan0-in-port
 
 
 (in-package :ulb-sim)
 
 
-(defclass ulb-struct-datagram ()
-  ((id
-    :accessor id-of
-    :documentation "assegnato da sendmsg-getid")
-   (end-of-life-event
-    :accessor end-of-life-event-of
-    :documentation "Riferimento all'evento che rimuove questo pacchetto
-     dall'ULB")
-   (send-again-event
-    :initarg :send-again-event
-    :initform (error ":send-again-event mancante")
-    :accessor send-again-event-of
-    :documentation "Riferimento all'evento che pone questo pacchetto
-     nuovamente nella coda di spedizione dall'ULB")
-   (data
-    :initarg :data
-    :initform (error ":data mancante")
-    :reader data-of
-    :documentation "Riferimento al pacchetto vero e proprio.")))
-
-
-(defclass ulb-struct-ping (ulb-struct-datagram)
-  ;; Lo slot data punta a un istanza ping-packet che contiene numero di
-  ;; sequenza e voto.
-  nil)
-
-
-(defclass first-hop-outcome ()
-  ((dgram-id
-    :initarg :dgram-id
-    :initform (error ":dgram-id mancante")
-    :reader dgram-id
-    :documentation "ID del datagram, sarebbe assegnato da sendmsg-getid")
-   (timestamp
-    :initarg :timestamp
-    :initform (error ":timestamp mancante")
-    :reader timestamp
-    :documentation "L'istante di creazione di questo first-hop-outcome")
-   (value
-    :initarg :value
-    :initform (error ":value mancante")
-    :reader value
-    :documentation "Valore dell'outcome: ack oppure nak")))
-;; TODO ack se TED dice ack oppure se ulb sa che ifaccia dice solo NAK ed
-;; e' scaduto un timeout.
-;; TODO nak se TED dice nak oppure se ulb sa che ifaccia dice solo ACK ed
-;; e' scaduto un timeout.
-
-
-(defclass full-path-outcome ()
-  ((sequence-number
-    :initarg :sequence-number
-    :initform (error ":sequence-number mancante")
-    :reader sequence-number
-    :documentation "Numero di sequenza del ping a cui si riferisce questo
-     full-path-outcome.")
-   (ping-sent-at
-    :initform *now*
-    :reader ping-sent-at
-    :documentation "Istante di spedizione del ping.")
-   (ping-recv-at
-    :accessor ping-recv-at
-    :documentation "Istante di ricezione del ping di risposta.")))
-
-
-(defclass ulb-wifi-interface ()
-  ((firmware-detected
-    :initform nil
-    :accessor firmware-detected
-    :documentation "ack, nak oppure full. Indica cio' che ULB ha dedotto
-     del firmware della scheda, osservando le notifiche e i ping ricevuti.")
-   (sent-datagrams
-    :initform ()
-    :accessor sent-datagrams
-    :documentation "Gli ulb-struct-datagram (ping compresi) spediti da
-     un'interfaccia vengono accodati qui in attesa di un ACK o di un
-     end-of-life-event che li scarti, oppure di un NAK o di un
-     send-again-event che li ritrasmetta.")
-   (send-ping-event
-    :initform nil
-    :accessor send-ping-event
-    :documentation "Riferimento all'evento che spedira' il prossimo ping su
-     questa interfaccia.")
-
-   (current-ping-seqnum
-    :initform -1
-    :accessor current-ping-seqnum
-    :documentation "Numero di sequenza dell'ultimo ping spedito su questa
-     interfaccia.")
-
-   (score
-    :initform 0
-    :accessor score
-    :documentation "Voto dell'interfaccia")
-
-   (first-hop-log
-    :initform nil
-    :accessor first-hop-log
-    :documentation "Lista di first-hop-outcome.")
-
-   (full-path-log
-    :initform nil
-    :accessor full-path-log
-    :documentation "Lista di full-path-outcome.")))
-
-
 (defclass ulb (simulator)
-  ((wlan-0
-    :initarg :wlan-0
-    :initform (error ":wlan-0 missing")
-    :accessor wlan-0-of
-    :type ulb-wifi-interface)
-   (wlan-1
-    :initarg :wlan-1
-    :initform (error ":wlan-1 missing")
-    :accessor wlan-1-of
-    :type ulb-wifi-interface)
-   (to-net-packets)
-   (to-phone-packets)))
+  ((phone-in
+    :accessor phone-in-of
+    :type phone-in-port)
+   (phone-out
+    :accessor phone-out-of
+    :type phone-out-port)
+   (ted0-in
+    :accessor ted0-in-of
+    :type ted-in-port)
+   (wlan0-in
+    :accessor wlan0-in-of
+    :type wlan-in-port)
+   (wlan0-out
+    :accessor wlan0-out-of
+    :type wlan-out-port)
+   (wlan1-in
+    :accessor wlan1-in-of
+    :type wlan-in-port)
+   (wlan1-out
+    :accessor wlan1-out-of
+    :type wlan-out-port)
+   (ted1-in
+    :accessor ted1-in-of
+    :type ted-in-port)
+   (to-wlan
+    :accessor to-wlan-of
+    :type list)
+   (to-phone
+    :accessor to-phone-of
+    :type list)))
 
 
 
-(defmethod handle-input ((u ulb) (lo-udp-in lo-udp-in-port)
-			 (up udp-packet))
-  "Incoming packet from softphone.
-   Lifetime: 150ms"
+(defmethod receive ((u ulb) (phone-in phone-in-port)
+		    (rtp rtp-packet))
+  "Contract: ulb phone-in-port rtp-packet -> end-of-life-event
+
+   Side effects: encapsulate rtp in a ulb-dgram-struct and enqueue into
+                 to-wlan."
+  (with-accessors ((to-wlan to-wlan-of)) u
+    (let ((eol-ev (fresh-eol-event)))
+      (setf to-wlan
+	    (append to-wlan
+		    (list (make-instance 'ulb-dgram-struct
+					 :eol-ev eol-ev
+					 :data rtp))))
+      eol-ev)))
+
+
+(defmethod handle-input ((u ulb) (phone-in phone-in-port)
+			 (rtp rtp-packet))
   (call-next-method)
-  (let ((eol-ev (fresh-eol-event)))
-    (let ((dgram-struct (make-instance 'ulb-struct-datagram
-				       :eol-ev eol-ev
-				       :data (payload-of up)))
-	  (must-send-p (null (to-net-packets-of u))))
-      (setf (to-net-packets-of u)
-	    (append (to-net-packets-of u)
-		    (list dgram-struct)))
-      (cons eol-ev (when must-send-p
-		     (send-datagram (best-interface u)
-				    (first-to-send u)))))))
+  (let ((must-send-p (null (to-wlan-of u))))
+      (cons (receive u phone-in rtp)
+	    (when must-send-p
+	      (send-datagram (best-interface u)
+			     (first-to-send u))))))
 
 
-(defmethod handle-input ((u ulb) (wlan-udp-in wlan-udp-in-port)
-			 (pkt udp-packet))
-  "Incoming packet from the net. Find the wlan interface owning this
-   port and call recv-datagram."
-  (let ((iface (find ...)))
-    (assert iface nil "receiving interface not found!")
-    (recv-datagram u iface pkt)))
+(defmethod handle-input ((u ulb) (wlan-in wlan-in-port)
+			 (rtp rtp-packet))
+
 
 
 (defmethod handle-input ((u ulb) (wlan-notify-in wlan-notify-in-port)

@@ -158,6 +158,13 @@
     :accessor destination-of)))
 
 
+(defclass netlink-packet (packet)
+  ((overhead-size
+    :initform (bytes 0))
+   (payload
+    :type (member (:acl :nak)))))
+
+
 (defclass wifi-frame (packet)
   ((overhead-size
     :initform (bytes 32))

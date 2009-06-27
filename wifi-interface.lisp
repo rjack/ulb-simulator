@@ -33,9 +33,8 @@
 
 ;; OVERVIEW
 ;;
-;;     link-in-port  --> +----------------+ --> host-out-port
-;;         LINK          | WIFI-INTERFACE |        HOST
-;;                       |                | --> ted-out-port
+;;      link-in-port --> +----------------+ --> host-out-port
+;;                       | WIFI-INTERFACE | --> host-notif-out-port
 ;;     link-out-port <-- +----------------+ <-- host-in-port
 ;;
 
@@ -53,6 +52,10 @@
   nil)
 
 
+(defclass host-notif-out-port (netlink-out-port)
+  nil)
+
+
 (defclass link-in-port (wifi-frame-in-port)
   nil)
 
@@ -61,16 +64,12 @@
   nil)
 
 
-(defclass ted-out-port (netlink-out-port)
-  nil)
-
-
 (defclass wifi-interface (simulator)
   ((fw-cap
     :initarg :fw-cap
     :reader fw-cap-of
     :type list
-    :documentation "(:ack :nak)"
+    :documentation "(:ack :nak)")
    (to-link
     :initform (list)
     :accessor to-link-of
@@ -78,6 +77,10 @@
    (to-host
     :initform (list)
     :accessor to-host-of
+    :type list)
+   (to-host-notif
+    :initform (list)
+    :accessor to-host-notif
     :type list)
    (link-out
     :accessor link-out-of
@@ -91,6 +94,9 @@
    (host-in
     :accessor host-in-of
     :type host-in-port)
+   (host-notif-out
+    :accessor host-notif-out-of
+    :type host-notif-out-port)
    (ack-timeout
     :accessor ack-timeout-of
     :type event)))
@@ -100,9 +106,9 @@
 (defmethod ack-timeout-expired ((wi wifi-interface))
   (assert (to-link-of wi) nil
 	  "Ack timeout expired, but nothing to re-send!")
-  (when (find :nack (fw-cap-of wi))
-    (notify-nak wi))
-  (send-to-link wi))
+  (nconc (when (find :nack (fw-cap-of wi))
+	   (notify-nak wi))
+	 (send-to-link wi)))
 
 
 (defmethod lock-port ((wi wifi-interface) (host-in host-in-port)
@@ -136,6 +142,18 @@
 			   (link-out link-out-port))
   (when (to-link-of wi)
     (send-to-link wi)))
+
+
+(defmethod out-port-ready ((wi wifi-interface)
+			   (host-notif-out host-notif-out-port))
+  (when (to-host-notif-of wi)
+    (notify-host wi)))
+
+
+(defmethod in-port-ready ((wi wifi-interface)
+			  (host-notif-out host-notif-out-port))
+  (when (to-host-notif-of wi)
+    (notify-host wi)))
 
 
 
@@ -177,15 +195,18 @@
 			 (link-in link-in-port)
 			 (ack wifi-ack-frame))
   "Stop and go: when receiving an ack, cancel the ack-timeout and
-   unlock the host-in-port."
+   unlock the host-in-port. If wi can ack, notify-ack."
   (call-next-method)
   (remove-child wi ack)
   (cancel-event (ack-timeout-of wi))
-  (list (make-instance 'event
-		       :owner wi
-		       :time (clock-of wi)
-		       :fn #'unlock-port
-		       :args (list (host-in-of wi)))))
+  (let ((unlock-event (make-instance 'event
+				     :owner wi
+				     :time (clock-of wi)
+				     :fn #'unlock-port
+				     :args (list (host-in-of wi)))))
+    (cons unlock-event
+	  (when (find :ack (fw-cap-of wi))
+	    (notify-ack wi)))))
 
 
 (defmethod handle-input ((wi wifi-interface)
@@ -230,7 +251,6 @@
   (pop (to-host-of wi)))
 
 
-
 (defmethod output ((wi wifi-interface)
 		   (out out-port)
 		   (obj object))
@@ -239,6 +259,17 @@
 		 (in-port-busy #'wait))
     (call-next-method)))
 
+
+(defmethod notify-host ((wi wifi-interface))
+  (with-accessors ((to-host-notif to-host-notif-of)
+		   (host-notif-out host-notif-out-of)
+		   (clock clock-of)) wi
+    (list (make-instance 'event
+			 :time clock
+			 :owner wi
+			 :fn #'output
+			 :args (list host-notif-out
+				     (first to-host-notif))))))
 
 
 (defmethod send-to-host ((wi wifi-interface))
