@@ -41,7 +41,7 @@
 ;;                    | error rate   |
 ;;     a-out-port <-- +--------------+ <-- b-in-port
 ;;
-;; handle-input udp-packet: output to other endpoint
+;; input-evs udp-packet: output to other endpoint
 
 
 (in-package :ulb-sim)
@@ -103,30 +103,30 @@
 
 
 
-(defmethod out-port-ready ((nl network-link)
+(defmethod out-ready-evs ((nl network-link)
 			   (b-out b-out-port))
   (when (to-b-of nl)
-    (send-to-b nl)))
+    (send-to-b-evs nl)))
 
-(defmethod in-port-ready ((nl network-link)
+(defmethod in-ready-evs ((nl network-link)
 			  (b-out b-out-port))
   (when (to-b-of nl)
-    (send-to-b nl)))
+    (send-to-b-evs nl)))
 
-(defmethod out-port-ready ((nl network-link)
+(defmethod out-ready-evs ((nl network-link)
 			   (a-out a-out-port))
   (when (to-a-of nl)
-    (send-to-a nl)))
+    (send-to-a-evs nl)))
 
-(defmethod in-port-ready ((nl network-link)
+(defmethod in-ready-evs ((nl network-link)
 			  (a-out a-out-port))
   (when (to-a-of nl)
-    (send-to-a nl)))
+    (send-to-a-evs nl)))
 
 
 
 
-(defmethod handle-input ((nl network-link)
+(defmethod input-evs ((nl network-link)
 			 (a-in a-in-port)
 			 (pkt packet))
   (call-next-method)
@@ -135,10 +135,10 @@
       (setf to-b (append to-b
 			 (list pkt)))
       (when must-start-p
-	(send-to-b nl)))))
+	(send-to-b-evs nl)))))
 
 
-(defmethod handle-input ((nl network-link)
+(defmethod input-evs ((nl network-link)
 			 (b-in b-in-port)
 			 (pkt packet))
   (call-next-method)
@@ -147,28 +147,32 @@
       (setf to-a (append to-a
 			 (list pkt)))
       (when must-start-p
-	(send-to-a nl)))))
+	(send-to-a-evs nl)))))
 
 
 
 
-(defmethod leaving ((nl network-link) (a-out a-out-port) (pkt packet))
+(defmethod post-output-evs ((nl network-link) (a-out a-out-port) (pkt packet))
   (with-accessors ((to-a to-a-of)) nl
     (assert (obj= pkt (first to-a)) nil
-	    "leaving nl a-out pkt: not the first pkt to-a!")
-    (pop to-a)))
+	    "post-output-evs nl a-out pkt: not the first pkt to-a!")
+    (pop to-a)
+    (when to-a
+      (send-to-a-evs nl))))
 
 
-(defmethod leaving ((nl network-link) (a-out a-out-port) (pkt packet))
+(defmethod post-output-evs ((nl network-link) (a-out a-out-port) (pkt packet))
   (with-accessors ((to-b to-b-of)) nl
     (assert (obj= pkt (first to-b)) nil
-	    "leaving nl a-out pkt: not the first pkt to-b!")
-    (pop to-b)))
+	    "post-output-evs nl a-out pkt: not the first pkt to-b!")
+    (pop to-b)
+    (when to-b
+      (send-to-b-evs))))
 
 
 
 
-(defmethod output ((nl network-link) (out out-port) (pkt packet))
+(defmethod output-evs ((nl network-link) (out out-port) (pkt packet))
   (handler-bind ((port-not-connected #'abort)
 		 (out-port-busy #'wait)
 		 (in-port-busy #'wait))
@@ -176,14 +180,14 @@
 
 
 
-(defmethod send-to-a ((nl network-link))
+(defmethod send-to-a-evs ((nl network-link))
   (with-accessors ((to-a to-a-of)
 		   (a-out a-out-of)
 		   (bandwidth bandwidth-of)
 		   (error-rate error-rate-of)
 		   (delay delay-of)
 		   (clock clock-of)) nl
-    (assert to-a nil "send-to-a has nothing to send")
+    (assert to-a nil "send-to-a-evs has nothing to send")
     (let ((fst (first to-a)))
       (if (< (random 101) error-rate)
 	  ;; transmission error! packet discarded
@@ -195,19 +199,19 @@
 					(/ (size fst)
 					   bandwidth))
 			       :owner nl
-			       :fn #'output
+			       :fn #'output-evs
 			       :args (list a-out
 					   fst)))))))
 
 
-(defmethod send-to-b ((nl network-link))
+(defmethod send-to-b-evs ((nl network-link))
   (with-accessors ((to-b to-b-of)
 		   (b-out b-out-of)
 		   (bandwidth bandwidth-of)
 		   (error-rate error-rate-of)
 		   (delay delay-of)
 		   (clock clock-of)) nl
-    (assert to-b nil "send-to-b has nothing to send")
+    (assert to-b nil "send-to-b-evs has nothing to send")
     (let ((fst (first to-b)))
       (if (< (random 101) error-rate)
 	  ;; transmission error! packet discarded
@@ -219,6 +223,6 @@
 					(/ (size fst)
 					   bandwidth))
 			       :owner nl
-			       :fn #'output
+			       :fn #'output-evs
 			       :args (list b-out
 					   fst)))))))

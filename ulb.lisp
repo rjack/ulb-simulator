@@ -95,7 +95,7 @@
       eol-ev)))
 
 
-(defmethod handle-input ((u ulb) (phone-in phone-in-port)
+(defmethod input-evs ((u ulb) (phone-in phone-in-port)
 			 (rtp rtp-packet))
   (call-next-method)
   (let ((must-send-p (null (to-wlan-of u))))
@@ -105,12 +105,12 @@
 			     (first-to-send u))))))
 
 
-(defmethod handle-input ((u ulb) (wlan-in wlan-in-port)
+(defmethod input-evs ((u ulb) (wlan-in wlan-in-port)
 			 (rtp rtp-packet))
 
 
 
-(defmethod handle-input ((u ulb) (wlan-notify-in wlan-notify-in-port)
+(defmethod input-evs ((u ulb) (wlan-notify-in wlan-notify-in-port)
 			 (ntf notification))
   "ack or nack?")
 

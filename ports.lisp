@@ -94,12 +94,12 @@
   nil)
 
 
-(defmethod lock-port ((sim simulator) (voice-out voice-out-port)
+(defmethod lock-evs ((sim simulator) (voice-out voice-out-port)
 		      (vo voice))
   "Voice-out locked until sim finishes talking."
   (list (make-instance 'event
 		       :owner sim
 		       :time (+ (clock-of sim)
 				(duration-of vo))
-		       :fn #'unlock-port
+		       :fn #'unlock-evs
 		       :args (list voice-out))))

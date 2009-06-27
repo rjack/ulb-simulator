@@ -75,18 +75,18 @@
 
 
 
-(defmethod in-port-ready ((p person) (voice-out voice-out-port))
+(defmethod in-ready-evs ((p person) (voice-out voice-out-port))
   (when (to-phone-of p)
-    (talk p)))
+    (talk-evs p)))
 
-(defmethod out-port-ready ((p person) (voice-out voice-out-port))
+(defmethod out-ready-evs ((p person) (voice-out voice-out-port))
   (when (to-phone-of p)
-    (talk p)))
+    (talk-evs p)))
 
 
 
 
-(defmethod handle-input ((p person) (in voice-in-port) (vo voice))
+(defmethod input-evs ((p person) (in voice-in-port) (vo voice))
   "Nothing to do, just discard received voice."
   (call-next-method)
   (remove-child p vo)
@@ -95,31 +95,33 @@
 
 
 
-(defmethod talk ((p person))
+(defmethod talk-evs ((p person))
   (with-accessors ((to-phone to-phone-of) (clock clock-of)
 		   (voice-out voice-out-of)) p
     (assert (not (null to-phone)) nil
-	    "Talk but nothing to say!")
+	    "talk-evs but nothing to say!")
     (list (make-instance 'event
 			 :owner p
 			 :time clock
-			 :fn #'output
+			 :fn #'output-evs
 			 :args (list voice-out
 				     (first to-phone))))))
 
 
 
 
-(defmethod leaving ((p person) (voice-out voice-out-port) (vo voice))
+(defmethod post-output-evs ((p person) (voice-out voice-out-port) (vo voice))
   (with-accessors ((to-phone to-phone-of)) p
     (assert (obj= vo (first to-phone)) nil
-	    "leaving p voice-out vo: not the first outgoing-voice!")
-    (pop to-phone)))
+	    "post-output-evs p voice-out vo: not the first outgoing-voice!")
+    (pop to-phone)
+    (when (to-phone-of p)
+      (talk-evs p))))
 
 
 
 
-(defmethod output ((p person) (voice-out voice-out-port) (vo voice))
+(defmethod output-evs ((p person) (voice-out voice-out-port) (vo voice))
   (handler-bind ((port-not-connected #'abort)
 		 (out-port-busy #'wait)
 		 (in-port-busy #'abort))

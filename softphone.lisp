@@ -68,21 +68,21 @@
 
 
 
-(defmethod in-port-ready ((sp softphone) (voice-out voice-out-port))
+(defmethod in-ready-evs ((sp softphone) (voice-out voice-out-port))
   (when (to-person-of sp)
-    (send-to-person sp)))
+    (send-to-person-evs sp)))
 
-(defmethod out-port-ready ((sp softphone) (voice-out voice-out-port))
+(defmethod out-ready-evs ((sp softphone) (voice-out voice-out-port))
   (when (to-person-of sp)
-    (send-to-person sp)))
+    (send-to-person-evs sp)))
 
-(defmethod in-port-ready ((sp softphone) (rtp-out rtp-out-port))
+(defmethod in-ready-evs ((sp softphone) (rtp-out rtp-out-port))
   (when (to-ulb-of sp)
-    (send-to-ulb sp)))
+    (send-to-ulb-evs sp)))
 
-(defmethod out-port-ready ((sp softphone) (rtp-out rtp-out-port))
+(defmethod out-ready-evs ((sp softphone) (rtp-out rtp-out-port))
   (when (to-ulb-of sp)
-    (send-to-ulb sp)))
+    (send-to-ulb-evs sp)))
 
 
 
@@ -114,45 +114,49 @@
 
 
 
-(defmethod handle-input ((sp softphone) (in voice-in-port) (vo voice))
+(defmethod input-evs ((sp softphone) (in voice-in-port) (vo voice))
   "Voice from person is converted in rtp-packets."
   (call-next-method)
   (let ((must-start-p (null (to-ulb-of sp))))
     (receive sp vo)
     (when must-start-p
-      (send-to-ulb sp))))
+      (send-to-ulb-evs sp))))
 
 
-(defmethod handle-input ((sp softphone) (in rtp-in-port)
+(defmethod input-evs ((sp softphone) (in rtp-in-port)
 			 (rp rtp-packet))
   (call-next-method)
   (let ((must-start-p (null (to-person-of sp))))
     (receive rp)
     (when must-start-p
-      (send-to-person sp))))
+      (send-to-person-evs sp))))
 
 
 
 
-(defmethod leaving ((sp softphone) (voice-out voice-out-port)
+(defmethod post-output-evs ((sp softphone) (voice-out voice-out-port)
 		    (vo voice))
   (with-accessors ((to-person to-person-of)) sp
     (assert (obj= vo (first to-person)) nil
-	    "leaving sp voice-out vo: not the first voice to-person!")
-    (pop to-person)))
+	    "post-output-evs sp voice-out vo: not the first voice to-person!")
+    (pop to-person)
+    (when to-person
+      (send-to-person-evs sp))))
 
 
-(defmethod leaving ((sp softphone) (rtp-out rtp-out-port)
+(defmethod post-output-evs ((sp softphone) (rtp-out rtp-out-port)
 		    (rtp rtp-packet))
   (with-accessors ((to-ulb to-ulb-of)) sp
     (assert (obj= rtp (first to-ulb)) nil
 	    "output sp rtp-out rtp: not the first rtp-packet to-ulb!")
-    (pop to-ulb)))
+    (pop to-ulb)
+    (when to-ulb
+      (send-to-ulb-evs sp))))
 
 
 
 
-(defmethod output ((sp softphone) (voice-out voice-out-port)
+(defmethod output-evs ((sp softphone) (voice-out voice-out-port)
 		   (vo voice))
   (handler-bind ((port-not-connected #'abort)
 		 (out-port-busy #'wait)
@@ -160,7 +164,7 @@
     (call-next-method)))
 
 
-(defmethod output ((sp softphone) (rtp-out rtp-out-port)
+(defmethod output-evs ((sp softphone) (rtp-out rtp-out-port)
 		   (rtp rtp-packet))
   (handler-bind ((port-not-connected #'abort)
 		 (out-port-busy #'wait)
@@ -170,25 +174,25 @@
 
 
 
-(defmethod send-to-ulb ((sp softphone))
+(defmethod send-to-ulb-evs ((sp softphone))
   (with-accessors ((to-ulb to-ulb-of)) sp
     (assert (not (null to-ulb)) nil
-	    "send-to-ulb has nothing to send!")
+	    "send-to-ulb-evs has nothing to send!")
     (list (make-instance 'event
 			 :time (clock-of sp)
 			 :owner sp
-			 :fn #'output
+			 :fn #'output-evs
 			 :args (list (rtp-out-of sp)
 				     (first to-ulb))))))
 
 
-(defmethod send-to-person ((sp softphone))
+(defmethod send-to-person-evs ((sp softphone))
   (with-accessors ((to-person to-person-of)) sp
     (assert (not (null to-person)) nil
-	    "send-to-person has nothing to send!")
+	    "send-to-person-evs has nothing to send!")
     (list (make-instance 'event
 			 :time (clock-of sp)
 			 :owner sp
-			 :fn #'output
+			 :fn #'output-evs
 			 :args (list (voice-out-of sp)
 				     (first to-person))))))

@@ -80,7 +80,7 @@
     :type list)
    (to-host-notif
     :initform (list)
-    :accessor to-host-notif
+    :accessor to-host-notif-of
     :type list)
    (link-out
     :accessor link-out-of
@@ -107,11 +107,11 @@
   (assert (to-link-of wi) nil
 	  "Ack timeout expired, but nothing to re-send!")
   (nconc (when (find :nack (fw-cap-of wi))
-	   (notify-nak wi))
-	 (send-to-link wi)))
+	   (enqueue-notif wi :nak))
+	 (send-to-link-evs wi)))
 
 
-(defmethod lock-port ((wi wifi-interface) (host-in host-in-port)
+(defmethod lock-evs ((wi wifi-interface) (host-in host-in-port)
 		      (p packet))
   "Stop and go algorithm! The port remains locked until the sent frame
    is acked back or the ack-timeout runs out."
@@ -120,41 +120,48 @@
 
 
 
-(defmethod in-port-ready ((wi wifi-interface)
+(defmethod in-ready-evs ((wi wifi-interface)
 			  (host-out host-out-port))
   (when (to-host-of wi)
-    (send-to-host wi)))
+    (send-to-host-evs wi)))
 
 
-(defmethod out-port-ready ((wi wifi-interface)
+(defmethod out-ready-evs ((wi wifi-interface)
 			   (host-out host-out-port))
   (when (to-host-of wi)
-    (send-to-host wi)))
+    (send-to-host-evs wi)))
 
 
-(defmethod in-port-ready ((wi wifi-interface)
+(defmethod in-ready-evs ((wi wifi-interface)
 			  (link-out link-out-port))
   (when (to-link-of wi)
-    (send-to-link wi)))
+    (send-to-link-evs wi)))
 
 
-(defmethod out-port-ready ((wi wifi-interface)
+(defmethod out-ready-evs ((wi wifi-interface)
 			   (link-out link-out-port))
   (when (to-link-of wi)
-    (send-to-link wi)))
+    (send-to-link-evs wi)))
 
 
-(defmethod out-port-ready ((wi wifi-interface)
+(defmethod out-ready-evs ((wi wifi-interface)
 			   (host-notif-out host-notif-out-port))
   (when (to-host-notif-of wi)
     (notify-host wi)))
 
 
-(defmethod in-port-ready ((wi wifi-interface)
+(defmethod in-ready-evs ((wi wifi-interface)
 			  (host-notif-out host-notif-out-port))
   (when (to-host-notif-of wi)
     (notify-host wi)))
 
+
+(defmethod enqueue-notif ((wi wifi-interface) notif)
+  (declare (keyword notif))
+  (with-accessors ((to-host-notif to-host-notif-of)) wi
+    (setf to-host-notif
+	  (append to-host-notif
+		  (list notif)))))
 
 
 
@@ -181,50 +188,50 @@
 
 
 
-(defmethod handle-input ((wi wifi-interface)
+(defmethod input-evs ((wi wifi-interface)
 			 (link-in link-in-port)
 			 (wf wifi-frame))
   (call-next-method)
   (let ((must-start-p (null (to-host-of wi))))
     (receive wi wf)
     (when must-start-p
-      (send-to-host wi))))
+      (send-to-host-evs wi))))
 
 
-(defmethod handle-input ((wi wifi-interface)
+(defmethod input-evs ((wi wifi-interface)
 			 (link-in link-in-port)
 			 (ack wifi-ack-frame))
   "Stop and go: when receiving an ack, cancel the ack-timeout and
-   unlock the host-in-port. If wi can ack, notify-ack."
+   unlock the host-in-port. If wi can ack, notify it."
   (call-next-method)
   (remove-child wi ack)
   (cancel-event (ack-timeout-of wi))
   (let ((unlock-event (make-instance 'event
 				     :owner wi
 				     :time (clock-of wi)
-				     :fn #'unlock-port
+				     :fn #'unlock-evs
 				     :args (list (host-in-of wi)))))
     (cons unlock-event
 	  (when (find :ack (fw-cap-of wi))
-	    (notify-ack wi)))))
+	    (enqueue-notif wi :ack)))))
 
 
-(defmethod handle-input ((wi wifi-interface)
+(defmethod input-evs ((wi wifi-interface)
 			 (host-in host-in-port)
 			 (rtp rtp-packet))
   (call-next-method)
   (let ((must-start-p (null (to-link-of wi))))
     (receive wi rtp)
     (when must-start-p
-      (send-to-link wi))))
+      (send-to-link-evs wi))))
 
 
 
 
-(defmethod leaving ((wi wifi-interface)
-		    (link-out link-out-port)
-		    (wf wifi-frame))
-  "Frame is leaving: set the ack timeout and don't remove the local
+(defmethod post-output-evs ((wi wifi-interface)
+			    (link-out link-out-port)
+			    (wf wifi-frame))
+  "Frame has been sent: set the ack timeout and don't remove the local
    copy of wf, since it may be needed if the sent one will not be
    acked."
   (assert (eql (size wf)
@@ -240,18 +247,21 @@
     (setf (ack-timeout-of wi)
 	  ack-tmout)
     (cons ack-tmout
-	  (call-next-method))))
+	  (when (to-link-of wi)
+	    (send-to-link-evs wi)))))
 
 
-(defmethod leaving ((wi wifi-interface)
-		    (host-out host-out-port)
-		    (rtp rtp-packet))
+(defmethod post-output-evs ((wi wifi-interface)
+			    (host-out host-out-port)
+			    (rtp rtp-packet))
   (assert (obj= rtp (first (to-host-of wi))) nil
 	  "output wi host-out rtp: not the first rtp packet to-host!")
-  (pop (to-host-of wi)))
+  (pop (to-host-of wi))
+  (when (to-host-of wi)
+    (send-to-host-evs wi)))
 
 
-(defmethod output ((wi wifi-interface)
+(defmethod output-evs ((wi wifi-interface)
 		   (out out-port)
 		   (obj object))
   (handler-bind ((port-not-connected #'abort)
@@ -267,32 +277,32 @@
     (list (make-instance 'event
 			 :time clock
 			 :owner wi
-			 :fn #'output
+			 :fn #'output-evs
 			 :args (list host-notif-out
 				     (first to-host-notif))))))
 
 
-(defmethod send-to-host ((wi wifi-interface))
+(defmethod send-to-host-evs ((wi wifi-interface))
   (with-accessors ((to-host to-host-of)
 		   (host-out host-out-of)
 		   (clock clock-of)) wi
-    (assert to-host nil "send-to-host has nothing to send")
+    (assert to-host nil "send-to-host-evs has nothing to send")
     (list (make-instance 'event
 			 :time clock
 			 :owner wi
-			 :fn #'output
+			 :fn #'output-evs
 			 :args (list host-out
 				     (first to-host))))))
 
 
-(defmethod send-to-link ((wi wifi-interface))
+(defmethod send-to-link-evs ((wi wifi-interface))
   (with-accessors ((to-link to-link-of)
 		   (link-out link-out-of)
 		   (clock clock-of)) wi
-    (assert to-link nil "send-to-link has nothing to send")
+    (assert to-link nil "send-to-link-evs has nothing to send")
     (list (make-instance 'event
 			 :time clock
 			 :owner wi
-			 :fn #'output
+			 :fn #'output-evs
 			 :args (list link-out
 				     (clone (first to-link)))))))
