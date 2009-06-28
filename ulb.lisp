@@ -45,11 +45,11 @@
 (in-package :ulb-sim)
 
 
-(defclass wlan-in-port (wifi-frame-in-port)
+(defclass wlan-in-port (udp-in-port)
   nil)
 
 
-(defclass wlan-out-port (wifi-frame-out-port)
+(defclass wlan-out-port (udp-in-port)
   ((state
     :initarg :working
     :accessor state-of
@@ -64,7 +64,7 @@
   ((value
     :initform :working
     :accessor value-of
-    :type (member :working :suspected :disabled))))
+    :type (member :working :suspected))))
 
 
 (defclass ulb (simulator)
@@ -148,6 +148,7 @@
 
 (defmethod input-evs ((u ulb) (phone-in phone-in-port)
 		      (rtp rtp-packet))
+  "From phone"
   (call-next-method)
   (let ((must-send-p (null (first-to-send u))))
       (cons (the event (receive u phone-in rtp))
@@ -159,13 +160,14 @@
 
 
 (defmethod input-evs ((u ulb) (wlan-in wlan-in-port)
-		      (rtp rtp-packet))
+		      (udp udp-packet))
+  "From wlan"
 
 
 
 (defmethod input-evs ((u ulb) (wlan-notify-in wlan-notify-in-port)
 		      (ntf notification))
-  "ack or nack?")
+  "From wlan TED"
 
 
 (defmethod recv-datagram ((u ulb) (uwi ulb-wifi-interface)
