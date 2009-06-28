@@ -146,7 +146,12 @@
 
 
 (defclass udp-packet (packet)
-  ((payload
+  ;; Actually, IP + UDP
+  ((identification
+    :initarg :identification
+    :accessor identification-of
+    :type id-type)
+   (payload
     :type (or rtp-packet data))
    (overhead-size
     :initform (bytes 8))
