@@ -175,10 +175,23 @@
   "Enqueue in to-phone")
 
 
-(defmethod recv-datagram ((u ulb) (uwi ulb-wifi-interface)
-			  (ping ping-packet))
-  "Record in full path log")
+(let ((sendmsg-id 0))
 
-
-(defmethod send-datagram ((u ulb) (wlan-out wlan-out-port)
-			  (uds ulb-dgram-struct))
+  (defmethod send-datagram ((u ulb) (wlan-out wlan-out-port)
+			    (uds ulb-dgram-struct))
+    ;; set sendmsg id
+    (let ((udp (the udp-packet (payload-of uds))))
+      (when (not (slot-boundp udp 'identification))
+	(setf (identification-of udp)
+	      (incf sendmsg-id))))
+    ;; enqueue
+    (setf (sent-of u)
+	  (append (sent-of u)
+		  (list uds)))
+    ;; output event
+    (list (make-instance 'event
+			 :owner u
+			 :time (clock-of u)
+			 :fn #'output
+			 :args (list wlan-out
+				     (clone (payload-of uds)))))))
