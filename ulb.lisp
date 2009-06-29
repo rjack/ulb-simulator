@@ -118,6 +118,19 @@
     :type list)))
 
 
+(defmethod in-ready-evs ((u ulb) (wlan-out wlan-out-port))
+  (send-datagram-evs u))
+
+(defmethod out-ready-evs ((u ulb) (wlan-out wlan-out-port))
+  (send-datagram-evs u))
+
+(defmethod in-ready-evs ((u ulb) (phone-out phone-out-port))
+  (send-to-phone-evs u))
+
+(defmethod out-ready-evs ((u ulb) (phone-out phone-out-port))
+  (send-to-phone-evs u))
+
+
 
 (defmethod receive ((u ulb) (phone-in phone-in-port)
 		    (rtp rtp-packet))
@@ -151,47 +164,104 @@
   "From phone"
   (call-next-method)
   (let ((must-send-p (null (first-to-send u))))
-      (cons (the event (receive u phone-in rtp))
-	    (when must-send-p
-	      (send-datagram (the wlan-out-port
-			       (best-out-port u)
-			     (the ulb-dgram-struct
-			       (first-to-send u))))))))
+    (cons (the event (receive u phone-in rtp))
+	  (when must-send-p
+	    (send-datagram-evs u)))))
 
 
 (defmethod input-evs ((u ulb) (wlan-in wlan-in-port)
 		      (udp udp-packet))
   "From wlan"
-
+  (call-next-method)
+  ;; TODO set working
+  (let ((must-send-p (null (to-phone-of u))))
+    (receive u wlan-in udp)
+    (when must-send-p
+      (send-to-phone-evs u))))
 
 
 (defmethod input-evs ((u ulb) (wlan-notify-in wlan-notify-in-port)
-		      (ntf notification))
+		      (ntf netlink-packet))
   "From wlan TED"
+  (remove-child u ntf)
+  (let ((id (car (payload-of ntf)))
+	(msg (cdr (payload-of ntf))))
+    (if (eql :ack msg)
+	(the null (discard u id))
+	(send-again u id))))
 
 
-(defmethod recv-datagram ((u ulb) (uwi ulb-wifi-interface)
-			  (pkt udp-packet))
-  "Enqueue in to-phone")
+(defmethod output ((u ulb) (out out-port) (obj object))
+  (handler-bind ((port-not-connected #'abort)
+		 (out-port-busy #'wait)
+		 (in-port-busy #'wait))
+    (call-next-method)))
+
+
+(defmethod get-identification ((uds ulb-struct-datagram))
+  (identification-of (payload-of uds)))
+
+
+(defmethod discard ((u ulb) id)
+  (declare (id id-type))
+    (let ((target (find id :key #'get-identification
+			(append (sent-of u)
+				(to-wlan-of u)
+				(to-wlan-urg-of u)))))
+      (when target
+	(setf (sent-of u)
+	      (remove target (sent-of u)))
+	(setf (to-wlan-of u)
+	      (remove target (to-wlan-of u)))
+	(setf (to-wlan-urg-of u)
+	      (remove target (to-wlan-urg-of u))))))
+  nil)
+
+
+(defmethod send-again ((u ulb) id)
+  (declare (id id-type))
+  (let ((target (find id :key #'get-identification
+		      (sent-of u))))
+    (when target
+      ;; remove from sent and enqueue to urgent
+      (setf (sent-of u)
+	    (remove target (sent-of u)))
+      (setf (to-wlan-urg-of u)
+	    (nconc (to-wlan-urg-of u)
+		   (list target)))
+      (send-datagram-evs u))))
+
 
 
 (let ((sendmsg-id 0))
 
-  (defmethod send-datagram ((u ulb) (wlan-out wlan-out-port)
-			    (uds ulb-dgram-struct))
-    ;; set sendmsg id
-    (let ((udp (the udp-packet (payload-of uds))))
-      (when (not (slot-boundp udp 'identification))
-	(setf (identification-of udp)
-	      (incf sendmsg-id))))
-    ;; enqueue
-    (setf (sent-of u)
-	  (append (sent-of u)
-		  (list uds)))
-    ;; output event
-    (list (make-instance 'event
-			 :owner u
-			 :time (clock-of u)
-			 :fn #'output
-			 :args (list wlan-out
-				     (clone (payload-of uds)))))))
+  (defmethod send-datagram-evs ((u ulb))
+    (let ((next-to-send (first-to-send u))
+	  (best-out (best-out-port u)))
+      (when netx-to-send
+	;; set sendmsg id
+	(let ((udp (the udp-packet (payload-of uds))))
+	  (when (not (slot-boundp udp 'identification))
+	    (setf (identification-of udp)
+		  (incf sendmsg-id))))
+	;; enqueue
+	(setf (sent-of u)
+	      (append (sent-of u)
+		      (list uds)))
+	;; output event
+	(list (make-instance 'event
+			     :owner u
+			     :time (clock-of u)
+			     :fn #'output
+			     :args (list best-out
+					 (clone (packet-of uds)))))))))
+
+
+(defmethod post-output-evs ((u ulb) (wlan-out wlan-out-port)
+			    (pkt packet))
+  (send-datagram-evs u))
+
+
+(defmethod post-output-evs ((u ulb) (phone-out phone-out-port)
+			    (pkt packet))
+  (send-to-phone-evs u))

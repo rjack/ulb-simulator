@@ -164,10 +164,10 @@
 
 
 (defclass netlink-packet (packet)
+  ;; payload: (id . :(ack|nak))
   ((overhead-size
-    :initform (bytes 0))
-   (payload
-    :type (member (:acl :nak)))))
+    :initform (bytes 0))))
+
 
 
 (defclass wifi-frame (packet)
