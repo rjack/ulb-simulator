@@ -39,6 +39,29 @@
 
 (in-package :ulb-sim)
 
+;; PSEUDO
+
+(defsim person
+  :properties
+  ((:label name :type string :documentation "example: Alice"))
+  :out-ports
+  ((:label mouth :type voice :with-queue t :if-locked wait))
+  :in-ports
+  ((:label ear :type voice)))
+
+
+(defevents person ear voice
+  ;; create and return an event that immediately discards the voice object.
+  (:immediately discard person ear voice))
+
+
+(defevents person mouth voice
+  ;; create and return an event that immediately outputs the first object in mouth's queue.
+  (:immediately next person mouth voice))
+
+
+;; /PSEUDO
+
 
 
 (defclass person (simulator)
