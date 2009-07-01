@@ -45,7 +45,6 @@
 
 (in-package :ulb-sim)
 
-
 (defclass wlan-in-port (data-in-port)
   nil)
 
