@@ -1,0 +1,6 @@
+			     SOFTPHONE INTERNALS
+
+Channels:
+
+speakers/microphone = full duplex channel
+(see Person)

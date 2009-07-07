@@ -1,0 +1,23 @@
+			       SOFTPHONE LOGIC
+
+Overview: from voice to rtp packets
+          from rtp-packets to voice
+
+Events:
+
+HEAR-EVENT takes VOICE from MICROPHONE,
+           GENERATEs RTP-PACKETs from VOICE
+	   flushes RTP-PACKETs to ULB,
+	   DISCARDs VOICE.
+
+
+RECEIVE-EVENT takes RTP-PACKET from LOOPBACK-INTERFACE,
+              GENERATEs VOICE from RTP-PACKET,
+	      flushes VOICE to PERSON,
+	      DISCARDs RTP-PACKET.
+
+
+SPEAK-EVENT outputs VOICE through SPEAKERS.
+
+
+SEND-EVENT outputs RTP-PACKET through LOOPBACK-INTERFACE.
