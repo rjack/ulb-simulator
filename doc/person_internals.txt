@@ -1,0 +1,20 @@
+			       PERSON INTERNALS
+
+Channels:
+
+Mouth and ears = full duplex channel.
+
+(note: nothing prevents a person from speaking and hearing at the same time,
+the "hear then speak" behaviour is just common sense and should ipotetically
+be modeled in the person logic)
+
+No need for output and input queues.
+
+Input objects are discarded.
+Output objects are generated on the fly.
+Channel output locked for voice duration.
+
+Assertions:
+
+- When outputting voice, channel must not be found locked.
+  If this happens, there was an error generating the conversation timings.

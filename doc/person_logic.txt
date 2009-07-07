@@ -1,0 +1,17 @@
+				 PERSON LOGIC
+
+Conversation simulated with a list of SPEAK-EVENTs.
+No relation between HEAR-EVENT and successive SPEAK-EVENT.
+Cannot cancel events.
+
+Example:
+   time1 speak-event1 voice1
+   time2 speak-event2 voice2
+
+Assertion: (>= (- time2 time1)
+               (duration voice1))
+
+Events:
+
+SPEAK-EVENT outputs VOICE through MOUTH.
+HEAR-EVENT takes VOICE from EARS and DISCARDS it.
