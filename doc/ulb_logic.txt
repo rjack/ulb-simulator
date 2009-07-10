@@ -1,0 +1,44 @@
+				  ULB LOGIC
+
+Overview: from loopback interface to best wlan interface
+          periodic output to wlan interfaces
+          from any wlan interface to loopback interface
+	                          change internal state
+
+
+  NO QOS
+
+Events:
+
+RECEIVE-EVENT takes RTP-PACKET from LOOPBACK-INTERFACE,
+              flushes RTP-PACKET to first WLAN-INTERFACE
+
+RECEIVE-EVENT takes RTP-PACKET from WLAN-INTERFACE
+              don't process RTP-PACKET
+              flushes RTP-PACKET to LOOPBACK-INTERFACE
+
+
+
+  BASIC QOS (as described by Dott. Ghini's paper)
+
+Events:
+
+RECEIVE-EVENT takes RTP-PACKET from LOOPBACK-INTERFACE
+              don't process RTP-PACKET
+              flushes RTP-PACKET to best interface
+
+
+RECEIVE-EVENT takes RTP-PACKET from WLAN-INTERFACE
+              process RTP-PACKET
+	      flushes RTP-PACKET to LOOPBACK-INTERFACE
+
+
+RECEIVE-EVENT takes NETLINK-PACKET from WLAN-INTERFACE
+              process NETLINK-PACKET
+	      ; e.g. if ack mark WLAN-INTERFACE as working
+	      ;      else mark WLAN-INTERFACE as suspected
+
+
+SEND-EVENT outputs RTP-PACKET through WLAN-INTERFACE
+
+SEND-EVENT outputs RTP-PACKET through LOOPBACK-INTERFACE
