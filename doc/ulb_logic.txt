@@ -25,11 +25,15 @@ Events:
 
 RECEIVE-EVENT takes RTP-PACKET from LOOPBACK-INTERFACE
               don't process RTP-PACKET
-              flushes RTP-PACKET to best interface
+	      if best-interface
+	         flushes RTP-PACKET to best-interface
+	      else
+	         discard RTP-PACKET
 
 
 RECEIVE-EVENT takes RTP-PACKET from WLAN-INTERFACE
               process RTP-PACKET
+	      ; e.g. mark WLAN-INTERFACE as working
 	      flushes RTP-PACKET to LOOPBACK-INTERFACE
 
 
