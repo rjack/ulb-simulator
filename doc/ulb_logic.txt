@@ -1,4 +1,4 @@
-				  ULB LOGIC
+			      ULB LOGIC
 
 Overview: from loopback interface to best wlan interface
           periodic output to wlan interfaces
@@ -12,6 +12,7 @@ Events:
 
 RECEIVE-EVENT takes RTP-PACKET from LOOPBACK-INTERFACE,
               flushes RTP-PACKET to first WLAN-INTERFACE
+
 
 RECEIVE-EVENT takes RTP-PACKET from WLAN-INTERFACE
               don't process RTP-PACKET
@@ -41,8 +42,53 @@ RECEIVE-EVENT takes NETLINK-PACKET from WLAN-INTERFACE
               process NETLINK-PACKET
 	      ; e.g. if ack mark WLAN-INTERFACE as working
 	      ;      else mark WLAN-INTERFACE as suspected
+              discard NETLINK-PACKET
 
 
 SEND-EVENT outputs RTP-PACKET through WLAN-INTERFACE
 
 SEND-EVENT outputs RTP-PACKET through LOOPBACK-INTERFACE
+
+
+  PROBABILISTIC QOS
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; FIXME: just sketched, timeouts and other stuff missing. ;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Events:
+
+RECEIVE-EVENT takes RTP-PACKET from LOOPBACK-INTERFACE
+              process RTP-PACKET : set it as non-urgent
+	      if best-interface
+                 flush RTP-PACKET to best interface
+              else
+                 discard RTP-PACKET
+
+
+RECEIVE-EVENT takes RTP-PACKET from WLAN-INTERFACE
+	      process RTP-PACKET : log arrival in wlan's log
+	      flush RTP-PACKET to LOOPBACK-INTERFACE
+
+
+RECEIVE-EVENT takes RAW-DATA from WLAN-INTERFACE
+	      process RAW-DATA : log ping informations in wlan's log
+	      discard RAW-DATA
+
+
+RECEIVE-EVENT takes NETLINK-PACKET from WLAN-INTERFACE
+	      process NETLINK-PACKET : log ack or nak in wlan's log
+                                       process the associated rtp-packet
+				       (e.g. discard if ACK, set urgent if NAK)
+	      discard NETLINK-PACKET
+
+
+SEND-EVENT outputs RTP-PACKET through LOOPBACK-INTERFACE
+
+
+SEND-EVENT outputs RTP-PACKET through WLAN-INTERFACE
+	   process RTP-PACKET : log sending in wlan's log
+
+
+SEND-EVENT outputs RAW-DATA through WLAN-INTERFACE
+	   process RAW-DATA : log ping sending in wlan's log
