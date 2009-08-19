@@ -38,25 +38,35 @@
 (in-package :ulb-sim)
 
 
-;; DEFSIM dice di cosa e' fatto un dato simulatore.
+;; DEFSIM deve specificare solo la *conformazione* di un simulatore.
 (defsim ulb
-  outgoing (make-instance 'priority-queue)
-  incoming (make-instance 'priority-queue)
-  lo (make-instance 'channel)
-  wlan0 (make-instance 'channel)
-  wlan1 (make-instance 'channel))
+  (outgoing 'priority-queue)
+  (incoming 'priority-queue)
+  (lo 'channel)
+  (wlan0 'channel)
+  (wlan1 'channel))
+
+(defin data-from-softphone ((u ulb) (:child lo)
+			    (rp rtp-packet))
 
 
-;; DEFPATH definisce i percorsi degli oggetti che attraversano un dato
-;; simulatore. Ovvero: *dove* vanno gli oggetti, e *come* passano da
-;; una struttura dati all'altra?
-(defpath ulb (rp rtp-packet)
-  (lo :proc (make-instance 'rtp-struct :pkt rp)
-	   :lock (transfer-time (size rp)
-			     (bandwidth-in lo))
-	   :flow t)
-  (outgoing :flow t)
-   (best wlan0 wlan1))
+;; DEFSTEP definisce un passo di un percorso all'interno di un
+;; simulatore.
+(defstep (ulb lo)
+    :datum (rp rtp-packet)
+    :name "rtp-from-softphone"
+    :lock (transfer-time (size rp)
+			 (bandwidth-in lo))
+  (let ((rps (make-instance 'rtp-struct :pkt rp
+			                :tstamp (gettime ulb))))
+    (next-step "rtp-outgoing" :datum rps)))
+
+
+(defstep (ulb outgoing)
+    :datum (rps rtp-struct)
+    :name "rtp-outgoing"
+    :lock 0
+    (next-step (best (wlan0 ulb) (wlan1 ulb))
   (wlan0 incoming lo)
   (wlan1 incoming lo))
 
