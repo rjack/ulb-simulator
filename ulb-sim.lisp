@@ -48,20 +48,18 @@
 
 
 ;; DEFPATH definisce i percorsi degli oggetti che attraversano un dato
-;; simulatore. Ovvero: *dove* vanno gli oggetti?
-(defpath ulb rtp-packet
-  (lo outgoing (best wlan0 wlan1))
+;; simulatore. Ovvero: *dove* vanno gli oggetti, e *come* passano da
+;; una struttura dati all'altra?
+(defpath ulb (rp rtp-packet)
+  (lo :proc (make-instance 'rtp-struct :pkt rp)
+	   :lock (transfer-time (size rp)
+			     (bandwidth-in lo))
+	   :flow t)
+  (outgoing :flow t)
+   (best wlan0 wlan1))
   (wlan0 incoming lo)
   (wlan1 incoming lo))
 
 (defpath ulb netlink-packet
   (wlan0 :discard)
   (wlan1 :discard))
-
-
-;; DEFIN e DEFOUT definiscono cosa succede agli oggetti che arrivano
-;; (DEFIN) e partono da (DEFOUT) un dato step di un dato simulatore.
-;; Se DEFPATH definisce *dove* si muovono gli oggetti, DEFIN e DEFOUT
-;; definiscono *come* si muovono.
-(defin (u ulb) (rp rtp-packet) :from lo
-  (:pp (make-instance 'rtp-struct :pkt rp)))
