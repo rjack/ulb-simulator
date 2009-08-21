@@ -44,31 +44,62 @@
 
 (defclass scenario ()
   ;; classe base con gli slot comuni a tutti gli scenari.
-  ;; `monitor' e' una classe di de-sim.
-  ((mon :initarg :mon :type monitor)))
+  ;; `monitor' e `link-manager' saranno classi di de-sim.
+  ((mon :initarg :mon :type monitor)
+   (con :initarg :con :type link-manager)))
 
 
 ;; definizione di scenario
 ;; diventera' `defscenario' un giorno?
 (defclass ulb-scenario (scenario)
-  ((sp    :initarg :sp    :type sphone-sim)
-   (ulb   :initarg :ulb   :type ulb-sim)
-   (wlan0 :initarg :wlan0 :type wlan-sim)
-   (wlan1 :initarg :wlan1 :type wlan-sim)
-   (ap0   :initarg :ap0   :type apoint-sim)
-   (ap1   :initarg :ap1   :type apoint-sim)
-   (proxy :initarg :proxy :type proxy-sim)))
+  ((sp-alice :initarg :sp-alice :type sphone-sim)
+   (ulb      :initarg :ulb      :type ulb-sim)
+   (wlan0    :initarg :wlan0    :type wlan-sim)
+   (wlan1    :initarg :wlan1    :type wlan-sim)
+   (ap0      :initarg :ap0      :type apoint-sim)
+   (ap1      :initarg :ap1      :type apoint-sim)
+   (proxy    :initarg :proxy    :type proxy-sim)
+   (sp-bob   :initarg :sp-bob   :type sphone-sim)))
 
 
 ;; prova di instanzazione di scenario
 (let* ((qos (pick-one 'none 'simple 'probabilistic))
-       (talk (pick-one 'wild-talk 'balanced 'monosillabic))
+       (alice-talk (pick-one 'wild-talk 'balanced 'monosillabic))
+       (bob-talk (pick-one 'wild-talk 'balanced 'monosillabic))
+       ;; ogni tipo di link dovrebbe avere valori di default
+       ;; appropriati.
+       (links (list (udp<-> 'sp-alice 'ulb)
+		    (udp<-> 'ulb 'wlan0)
+		    (udp<-> 'ulb 'wlan1)
+		    (netlink-> 'wlan0 'ulb)
+		    (netlink-> 'wlan1 'ulb)
+		    (wifi<-> 'wlan0 'ap0
+			     :bw (mib/s 18)
+			     :error-rate (% 10)
+			     :delay (usecs 1))
+		    (wifi<-> 'wlan1 'ap1
+			     :bw (mib/s 13)
+			     :error-rate (% 3)
+			     :delay (usecs 1))
+		    (udp<=> 'ap0 'proxy
+			     :bw (mib/s 10)
+			     :error-rate (% 2)
+			     :delay (msecs 30))
+		    (udp<=> 'ap1 'proxy
+			     :bw (mib/s 12)
+			     :error-rate (% 3)
+			     :delay (msecs 17))
+		    (udp<=> 'proxy 'sp-bob
+			     :bw (mib/s 1)
+			     :error-rate (% 1)
+			     :delay (msecs 50))))
        (snr (new 'ulb-scenario
-		 :sp (new 'sphone-sim :talk talk)
+		 :sp-alice (new 'sphone-sim :talk alice-talk)
 		 :ulb (new 'ulb-sim :qos qos)
 		 :wlan0 (new 'wlan-sim)
 		 :wlan1 (new 'wlan-sim)
 		 :ap0 (new 'apoint-sim)
 		 :ap1 (new 'apoint-sim)
-		 :proxy (new 'proxy-sim :qos qos))))
-  nil)
+		 :proxy (new 'proxy-sim :qos qos)
+		 :sp-bob (new 'sphone-sim :talk (bob-talk)
+		 :con (new 'link-manager :links links))))
