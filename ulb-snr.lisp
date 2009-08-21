@@ -102,4 +102,5 @@
 		 :ap1 (new 'apoint-sim)
 		 :proxy (new 'proxy-sim :qos qos)
 		 :sp-bob (new 'sphone-sim :talk (bob-talk)
-		 :con (new 'link-manager :links links))))
+		 :con (new 'link-manager :links links)))))
+  nil)
