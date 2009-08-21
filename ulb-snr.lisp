@@ -39,8 +39,7 @@
 
 
 ;; ULB SCENARIO
-;; Connette vari simulatori per costruire una situazione.
-
+;; Istanzia e connette vari simulatori per costruire una situazione.
 
 
 (defclass scenario ()
@@ -49,6 +48,8 @@
   ((mon :initarg :mon :type monitor)))
 
 
+;; definizione di scenario
+;; diventera' `defscenario' un giorno?
 (defclass ulb-scenario (scenario)
   ((sp    :initarg :sp    :type sphone-sim)
    (ulb   :initarg :ulb   :type ulb-sim)
@@ -59,6 +60,7 @@
    (proxy :initarg :proxy :type proxy-sim)))
 
 
+;; prova di instanzazione di scenario
 (let* ((qos (pick-one 'none 'simple 'probabilistic))
        (talk (pick-one 'wild-talk 'balanced 'monosillabic))
        (snr (new 'ulb-scenario
