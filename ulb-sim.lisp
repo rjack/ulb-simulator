@@ -38,13 +38,16 @@
 (in-package :ulb-sim)
 
 
-;; DEFSIM deve specificare solo la *conformazione* di un simulatore.
-(defsim ulb
-  (outgoing 'priority-queue)
-  (incoming 'priority-queue)
-  (lo 'channel)
-  (wlan0 'channel)
-  (wlan1 'channel))
+;; definizione di similatore ULB
+;; diventera' `defsim' un giorno?
+;; NB: deve specificare solo la *conformazione* di un simulatore.
+(defclass ulb-sim (sim)
+  ((outq  :initarg :outq  :type priority-queue)
+   (inq   :initarg :inq   :type priority-queue)
+   (lo    :initarg :lo    :type socket)
+   (wlan0 :initarg :wlan0 :type socket)
+   (wlan1 :initarg :wlan1 :type socket)))
+
 
 (defin data-from-softphone ((u ulb) (:child lo)
 			    (rp rtp-packet))
