@@ -38,9 +38,10 @@
 (in-package :ulb-sim)
 
 
-;; definizione di similatore ULB
+;; definizione di simulatore ULB
 ;; diventera' `defsim' un giorno?
 ;; NB: deve specificare solo la *conformazione* di un simulatore.
+;;     `sim' sara' una classe di de-sim
 (defclass ulb-sim (sim)
   ((outq  :initarg :outq  :type priority-queue)
    (inq   :initarg :inq   :type priority-queue)

@@ -62,7 +62,7 @@
    (sp-bob   :initarg :sp-bob   :type sphone-sim)))
 
 
-;; prova di instanzazione di scenario
+;; prova di creazione scenario
 (let* ((qos (pick-one 'none 'simple 'probabilistic))
        (alice-talk (pick-one 'wild-talk 'balanced 'monosillabic))
        (bob-talk (pick-one 'wild-talk 'balanced 'monosillabic))
