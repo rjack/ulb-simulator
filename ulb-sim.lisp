@@ -50,30 +50,14 @@
    (wlan1 :initarg :wlan1 :type socket)))
 
 
-(defin data-from-softphone ((u ulb) (:child lo)
-			    (rp rtp-packet))
-
-
-;; DEFSTEP definisce un passo di un percorso all'interno di un
-;; simulatore.
-(defstep (ulb lo)
-    :datum (rp rtp-packet)
-    :name "rtp-from-softphone"
-    :lock (transfer-time (size rp)
-			 (bandwidth-in lo))
-  (let ((rps (make-instance 'rtp-struct :pkt rp
-			                :tstamp (gettime ulb))))
-    (next-step "rtp-outgoing" :datum rps)))
-
-
-(defstep (ulb outgoing)
-    :datum (rps rtp-struct)
-    :name "rtp-outgoing"
-    :lock 0
-    (next-step (best (wlan0 ulb) (wlan1 ulb))
-  (wlan0 incoming lo)
-  (wlan1 incoming lo))
-
-(defpath ulb netlink-packet
-  (wlan0 :discard)
-  (wlan1 :discard))
+;; `with-port-locked' dovrebbe impostare `lo' come bloccata e
+;; aggiungere l'evento di unlocking agli eventi definiti nel body.
+(defmethod take ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
+  "rtp packet from softphone -> rtp struct to outq"
+  (with-port-locked us lo :tm (transfer-time (size rp)
+					     (bandwidth-in lo))
+    (with-slots (id tm) us
+      (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
+	(values us
+		(new 'event :tm tm :owner-id id
+		     :fn 'take :args '('outq rps)))))))
