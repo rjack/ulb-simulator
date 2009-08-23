@@ -46,7 +46,7 @@
   ;; classe base con gli slot comuni a tutti gli scenari.
   ;; `monitor' e `link-manager' saranno classi di de-sim.
   ((mon :initarg :mon :type monitor)
-   (con :initarg :con :type link-manager)))
+   (lm :initarg :lm :type link-manager)))
 
 
 ;; definizione di scenario
@@ -102,5 +102,5 @@
 		 :ap1 (new 'apoint-sim)
 		 :proxy (new 'proxy-sim :qos qos)
 		 :sp-bob (new 'sphone-sim :talk (bob-talk)
-		 :con (new 'link-manager :links links)))))
+		 :lm (new 'link-manager :links links)))))
   nil)
