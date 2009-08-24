@@ -54,10 +54,15 @@
 ;; aggiungere l'evento di unlocking agli eventi definiti nel body.
 (defmethod take ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
   "rtp packet from softphone -> rtp struct to outq"
-  (with-port-locked us lo :tm (transfer-time (size rp)
-					     (bandwidth-in lo))
-    (with-slots (id tm) us
-      (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
-	(values us
-		(new 'event :tm tm :owner-id id
-		     :fn 'take :args '('outq rps)))))))
+  (with-slots (id lo tm) us
+    (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
+      (values (lock us 'lo)   ; diventera' `with-locked-socket'?
+	      (list (new 'event
+			 :owner-id id :tm tm
+			 :fn 'take :args '('outq rps))
+		    (new 'event
+			 :owner-id id
+			 :tm (+ tm
+				(transfer-time (size rp)
+					       (bandwidth-in lo)))
+			 :fn 'unlock :args '('lo)))))))
