@@ -58,7 +58,8 @@
   "rtp packet from softphone -> rtp struct to outq"
   (with-slots (id lo tm) us
     (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
-      (values (lock us 'lo)   ; diventera' `with-locked-socket'?
+      ;; diventera' `with-locked-socket'?
+      (values (the ulb-sim (lock us 'lo))
 	      (list (new 'event
 			 :owner-id id :tm tm
 			 :fn 'in :args '('outq rps))
