@@ -49,17 +49,19 @@
    (wlan0 :initarg :wlan0 :type socket)
    (wlan1 :initarg :wlan1 :type socket)))
 
-
-;; la macro `with-locked-socket' dovrebbe impostare `lo' come bloccata
-;; e aggiungere l'evento di unlocking agli eventi definiti nel body.
-(defmethod take ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
+;; Metodo `IN'
+;; Argomenti: sim socket-name object
+;; Note: la macro `with-locked-socket' dovrebbe impostare `lo' come
+;; bloccata e aggiungere l'evento di unlocking agli eventi definiti
+;; nel body.
+(defmethod in ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
   "rtp packet from softphone -> rtp struct to outq"
   (with-slots (id lo tm) us
     (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
       (values (lock us 'lo)   ; diventera' `with-locked-socket'?
 	      (list (new 'event
 			 :owner-id id :tm tm
-			 :fn 'take :args '('outq rps))
+			 :fn 'in :args '('outq rps))
 		    (new 'event
 			 :owner-id id
 			 :tm (+ tm
