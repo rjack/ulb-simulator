@@ -50,8 +50,8 @@
    (wlan1 :initarg :wlan1 :type socket)))
 
 
-;; `with-port-locked' dovrebbe impostare `lo' come bloccata e
-;; aggiungere l'evento di unlocking agli eventi definiti nel body.
+;; la macro `with-locked-socket' dovrebbe impostare `lo' come bloccata
+;; e aggiungere l'evento di unlocking agli eventi definiti nel body.
 (defmethod take ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
   "rtp packet from softphone -> rtp struct to outq"
   (with-slots (id lo tm) us
