@@ -69,6 +69,9 @@
 					       (bandwidth-in lo)))
 			 :fn 'unlock :args '('lo)))))))
 
+;; Metodi `in' e `out' dovrebbero funzionare sia tra componenti
+;; interni di un simulatore, sia tra diversi simulatori.
+
 ;; Metodo `OUT'
 ;; Cosi' e' SBAGLIATO! Bisogna tentare di accedere alla porta,
 ;; l'evento `in' deve essere creato solo se l'accesso e' riuscito.
