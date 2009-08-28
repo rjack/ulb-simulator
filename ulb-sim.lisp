@@ -59,11 +59,11 @@
   (with-slots (id lo tm) us
     (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
       ;; diventera' `with-locked-socket'?
-      (values (the ulb-sim (lock us 'lo))
+      (values (the ulb-sim (lock us 'lo))     ; qui lock
 	      (list (new 'event
 			 :owner-id id :tm tm
 			 :fn 'in :args '('outq rps))
-		    (new 'event
+		    (new 'event               ; qui crea evento unlock
 			 :owner-id id
 			 :tm (+ tm
 				(transfer-time (size rp)
