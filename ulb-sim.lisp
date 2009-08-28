@@ -55,17 +55,27 @@
 ;; bloccata e aggiungere l'evento di unlocking agli eventi definiti
 ;; nel body.
 (defmethod in ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
-  "rtp packet from softphone -> rtp struct to outq"
   (with-slots (id lo tm) us
     (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
       ;; diventera' `with-locked-socket'?
       (values (the ulb-sim (lock us 'lo))     ; qui lock
 	      (list (new 'event
 			 :owner-id id :tm tm
-			 :fn 'in :args '('outq rps))
+			 :fn 'out :args '('lo rps))
 		    (new 'event               ; qui crea evento unlock
 			 :owner-id id
 			 :tm (+ tm
 				(transfer-time (size rp)
 					       (bandwidth-in lo)))
 			 :fn 'unlock :args '('lo)))))))
+
+;; Metodo `OUT'
+;; Cosi' e' SBAGLIATO! Bisogna tentare di accedere alla porta,
+;; l'evento `in' deve essere creato solo se l'accesso e' riuscito.
+;; FIXME: dove inserisco l'handler-bind?
+(defmethod out ((us ulb-sim) (slot (eql 'lo)) (rps rtp-struct))
+  (with-slots (id lo tm) us
+    (values us
+	    (list (new 'event
+		       :owner-id id :tm tm
+		       :fn 'in :args '('outq rps))))))
