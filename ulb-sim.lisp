@@ -63,13 +63,15 @@
       (values (the ulb-sim (lock us 'lo))     ; qui lock
 	      (list (new 'event
 			 :owner-id id :tm tm
-			 :fn 'out :args '('lo rps))
+			 :fn (lambda (sim)
+			       (out sim 'lo rps)))
 		    (new 'event               ; qui crea evento unlock
 			 :owner-id id
 			 :tm (+ tm
 				(transfer-time (size rp)
 					       (bandwidth-in lo)))
-			 :fn 'unlock :args '('lo)))))))
+			 :fn (lambda (sim)
+			       (unlock sim 'lo))))))))
 
 ;; Metodi `in' e `out' dovrebbero funzionare sia tra componenti
 ;; interni di un simulatore, sia tra diversi simulatori.
@@ -83,4 +85,12 @@
     (values us
 	    (list (new 'event
 		       :owner-id id :tm tm
-		       :fn 'in :args '('outq rps))))))
+		       :fn (lambda (sim)
+			     ;; TODO: riesco a specificare i restart
+			     ;; come &keys? Tipo
+			     ;; (access sim 'outq rps
+			     ;;         :locked #'wait
+			     ;;         :not-connected #'abort)
+			     (handler-bind ((locked #'wait)
+					    (not-connected #'abort))
+			       (access sim 'outq rps))))))))
