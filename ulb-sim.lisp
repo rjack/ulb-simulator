@@ -69,6 +69,11 @@
       us)))
 
 
+(defmethod children ((us ulb-sim))
+  "Nessun simulatore interno, gli ulb-sim sono piatti"
+  nil)
+
+
 ;;; Metodo `IN'
 
 ;; Argomenti: sim socket-name object
