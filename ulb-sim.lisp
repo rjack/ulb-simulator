@@ -51,6 +51,24 @@
    (wlan0 :initarg :wlan0 :type socket)
    (wlan1 :initarg :wlan1 :type socket)))
 
+
+(defmethod setup-new ((us ulb-sim))
+  (let ((links (list (ln-> 'lo 'outq)
+		     (ln<=> 'outq 'wlan0)
+		     (ln<=> 'outq 'wlan1)
+		     (ln-> 'wlan0 'inq)
+		     (ln-> 'wlan1 'inq)
+		     (ln-> 'inq 'lo))))
+    (with-slots (outq inq lo wlan0 wlan1 lm) us
+      (setf outq  (new 'priority-queue))
+      (setf inq   (new 'priority-queue))
+      (setf lo    (new 'socket))
+      (setf wlan0 (new 'socket))
+      (setf wlan1 (new 'socket))
+      (setf lm    (new 'link-manager :links links))
+      us)))
+
+
 ;;; Metodo `IN'
 
 ;; Argomenti: sim socket-name object
