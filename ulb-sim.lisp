@@ -51,7 +51,8 @@
    (wlan0 :initarg :wlan0 :type socket)
    (wlan1 :initarg :wlan1 :type socket)))
 
-;; Metodo `IN'
+;;; Metodo `IN'
+
 ;; Argomenti: sim socket-name object
 ;; Note: la macro `with-locked-socket' dovrebbe impostare `lo' come
 ;; bloccata e aggiungere l'evento di unlocking agli eventi definiti
@@ -76,10 +77,28 @@
 ;; Metodi `in' e `out' dovrebbero funzionare sia tra componenti
 ;; interni di un simulatore, sia tra diversi simulatori.
 
-;; Metodo `OUT'
-;; Cosi' e' SBAGLIATO! Bisogna tentare di accedere alla porta,
-;; l'evento `in' deve essere creato solo se l'accesso e' riuscito.
-;; FIXME: dove inserisco l'handler-bind?
+;; Tra la chiamata di `out' e quella di `in' dovrebbe esserci una
+;; chiamata implicita `access' che controlla se il socket e' connesso
+;; e senza lock.
+
+;;; Metodo `OUT'
+
+;; PROBLEMI:
+
+;; Ora come ora, la connessione 'lo -> 'outq e' *implicita* e
+;; *hard-coded* nel metodo `out' specializzato su 'lo.
+;; NO! deve esserci un `lookup'.
+
+;; Bisogna tentare di accedere alla porta, l'evento `in' deve essere
+;; creato solo se l'accesso e' riuscito.
+;; Due strade:
+;; * `out', invece di chiamare direttamente `in', chiama `access' ed
+;;   e' quest'ultima a chiamare `in' se non ci sono errori.
+;; * `access' e' un metodo around di `in' che chiama
+;;    (call-next-method) solo se non ci sono errori: in questo modo
+;;    `out' puo' chiamare `in' direttamente e l'accesso e'
+;;    trasparente.
+;; TENTO LA PRIMA: piu' esplicita.
 (defmethod out ((us ulb-sim) (slot (eql 'lo)) (rps rtp-struct))
   (with-slots (id lo tm) us
     (values us
