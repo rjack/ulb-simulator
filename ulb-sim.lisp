@@ -84,18 +84,18 @@
   (with-slots (id lo tm) us
     (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
       ;; diventera' `with-locked-socket'?
-      (values (the ulb-sim (lock us 'lo))     ; qui lock
+      (values (the ulb-sim (! us :lo (busy (lo us))))  ; "lock"
 	      (list (new 'event
 			 :owner-id id :tm tm
 			 :fn (lambda (sim)
 			       (out sim 'lo rps)))
-		    (new 'event               ; qui crea evento unlock
+		    (new 'event                        ; "unlock"
 			 :owner-id id
 			 :tm (+ tm
 				(transfer-time (size rp)
 					       (bandwidth-in lo)))
 			 :fn (lambda (sim)
-			       (unlock sim 'lo))))))))
+			       (! sim :lo (idle (lo sim))))))))))
 
 ;; Metodi `in' e `out' dovrebbero funzionare sia tra componenti
 ;; interni di un simulatore, sia tra diversi simulatori.
@@ -103,6 +103,33 @@
 ;; Tra la chiamata di `out' e quella di `in' dovrebbe esserci una
 ;; chiamata implicita `access' che controlla se il socket e' connesso
 ;; e senza lock.
+;; ANZI
+;; `access' controlla che la *struttura dati* ricevente possa/voglia
+;; ricevere l'oggetto. Non ci sono lock espliciti! Per esempio una
+;; struttura dati di tipo `buffer' con una capacita' limitata puo'
+;; sollevare un errore in una `access' perche' e' piena!
+;; Quindi `locked' puo' essere un errore specifico come puo' esserlo
+;; `full' o come `disabled' o mille altri.
+;; Potrebbe esserci un errore di tipo `access-error' e tutti gli altri
+;; essere sottoclassi di questo.
+;; In questo modo il meccanismo di passaggio degli oggetti potrebbe
+;; essere identico sia ai confini sia all'interno del simulatore.
+
+
+;; Access per 'lo riesce solo se l'interfaccia e' inattiva, altrimenti
+;; solleva l'errore `busy'.
+;; PROBLEMA: questo come si rapporta ai vari link simplex, half-duplex
+;; e duplex?
+(defmethod access ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
+  (if (idle-p (lo us))
+      (in us 'lo rp)
+      (error 'busy)))
+
+
+;; Access per 'outq riesce sempre, quindi non solleva errori
+(defmethod access ((us ulb-sim) (slot (eql 'outq)) (rps rtp-struct))
+  (in us 'outq rps))
+
 
 ;;; Metodo `OUT'
 
