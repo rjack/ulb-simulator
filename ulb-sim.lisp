@@ -108,10 +108,6 @@
 
 ;; PROBLEMI:
 
-;; Ora come ora, la connessione 'lo -> 'outq e' *implicita* e
-;; *hard-coded* nel metodo `out' specializzato su 'lo.
-;; NO! deve esserci un `lookup'.
-
 ;; Bisogna tentare di accedere alla porta, l'evento `in' deve essere
 ;; creato solo se l'accesso e' riuscito.
 ;; Due strade:
@@ -123,16 +119,17 @@
 ;;    trasparente.
 ;; TENTO LA PRIMA: piu' esplicita.
 (defmethod out ((us ulb-sim) (slot (eql 'lo)) (rps rtp-struct))
-  (with-slots (id lo tm) us
-    (values us
-	    (list (new 'event
-		       :owner-id id :tm tm
-		       :fn (lambda (sim)
-			     ;; TODO: riesco a specificare i restart
-			     ;; come &keys? Tipo
-			     ;; (access sim 'outq rps
-			     ;;         :locked #'wait
-			     ;;         :not-connected #'abort)
-			     (handler-bind ((locked #'wait)
-					    (not-connected #'abort))
-			       (access sim 'outq rps))))))))
+  (let ((dest (next-step us 'lo rps))) ; lookup destinazione
+    (with-slots (id lo tm) us
+      (values us
+	      (list (new 'event
+			 :owner-id id :tm tm
+			 :fn (lambda (sim)
+			       ;; TODO: riesco a specificare i restart
+			       ;; come &keys? Tipo
+			       ;; (access sim 'outq rps
+			       ;;         :locked #'wait
+			       ;;         :not-connected #'abort)
+			       (handler-bind ((locked #'wait)
+					      (not-connected #'abort))
+				 (access sim dest rps)))))))))
