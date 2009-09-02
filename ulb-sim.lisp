@@ -38,12 +38,12 @@
 (in-package :ulb-sim)
 
 
-;; definizione di simulatore ULB
-;; diventera' `defsim' un giorno?
+;; Definizione di simulatore ULB
+;; Diventera' `defsim' un giorno?
 ;; NB: deve specificare solo la *conformazione* di un simulatore.
 ;;     `sim' sara' una classe di de-sim
-;; TODO: la definizione dei collegamenti tra i componenti interni fa
-;;       parte della conformazione o dello scenario?
+;; I collegamenti tra componenti interni vengono creati in `setup-new'
+
 (defclass ulb-sim (sim)
   ((outq  :initarg :outq  :type priority-queue)
    (inq   :initarg :inq   :type priority-queue)
