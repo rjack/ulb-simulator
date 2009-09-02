@@ -121,6 +121,7 @@
 ;; PROBLEMA: questo come si rapporta ai vari link simplex, half-duplex
 ;; e duplex?
 (defmethod access ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
+  ;; FIXME! trasformami in access-link
   (if (idle-p (lo us))
       (in us 'lo rp)
       (error 'busy)))
@@ -128,35 +129,22 @@
 
 ;; Access per 'outq riesce sempre, quindi non solleva errori
 (defmethod access ((us ulb-sim) (slot (eql 'outq)) (rps rtp-struct))
+  ;; FIXME! trasformami in access-link
   (in us 'outq rps))
 
 
 ;;; Metodo `OUT'
 
-;; PROBLEMI:
+;; `out', invece di chiamare direttamente `in', chiama `access-link'
+;; che decide:
+;; * se far uscire l'oggetto o se sollevare un errore `not-connected'
+;;   o `locked', per cui l'oggetto manco lascia il simulatore.
+;; * la destinazione
+;; * quando e se l'oggetto arriva a destinazione
+;; In definitiva `out' decide un'eventuale trasformazione dell'oggetto
+;; e chiama `access-link' che fa il resto, ritornando gli eventi appropriati.
 
-;; Bisogna tentare di accedere alla porta, l'evento `in' deve essere
-;; creato solo se l'accesso e' riuscito.
-;; Due strade:
-;; * `out', invece di chiamare direttamente `in', chiama `access' ed
-;;   e' quest'ultima a chiamare `in' se non ci sono errori.
-;; * `access' e' un metodo around di `in' che chiama
-;;    (call-next-method) solo se non ci sono errori: in questo modo
-;;    `out' puo' chiamare `in' direttamente e l'accesso e'
-;;    trasparente.
-;; TENTO LA PRIMA: piu' esplicita.
 (defmethod out ((us ulb-sim) (slot (eql 'lo)) (rps rtp-struct))
-  (let ((dest (next-step us 'lo rps))) ; lookup destinazione
-    (with-slots (id lo tm) us
-      (values us
-	      (list (new 'event
-			 :owner-id id :tm tm
-			 :fn (lambda (sim)
-			       ;; TODO: riesco a specificare i restart
-			       ;; come &keys? Tipo
-			       ;; (access sim 'outq rps
-			       ;;         :locked #'wait
-			       ;;         :not-connected #'abort)
-			       (handler-bind ((locked #'wait)
-					      (not-connected #'abort))
-				 (access sim dest rps)))))))))
+  (handler-bind ((locked #'wait)
+		 (not-connected #'abort))
+    (access-link sim 'lo rps)))
