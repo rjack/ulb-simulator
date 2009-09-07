@@ -38,20 +38,14 @@
 (in-package :ulb-snr)
 
 
-;; ULB SCENARIO
+;; ULB SCENARIO SIMULATOR
 ;; Istanzia e connette vari simulatori per costruire una situazione.
 
 
-(defclass scenario ()
-  ;; classe base con gli slot comuni a tutti gli scenari.
-  ;; `monitor' e `link-manager' saranno classi di de-sim.
-  ((mon :initarg :mon :type monitor)
-   (lm :initarg :lm :type link-manager)))
-
-
-;; definizione di scenario
-;; diventera' `defscenario' un giorno?
-(defclass ulb-scenario (scenario)
+;; definizione dello scenario
+;; E' un simulatore che ha come componenti i simulatori che compongono
+;; lo scenario.
+(defclass ulb-scenario (sim)
   ((sp-alice :initarg :sp-alice :type sphone-sim)
    (ulb      :initarg :ulb      :type ulb-sim)
    (wlan0    :initarg :wlan0    :type wlan-sim)
