@@ -63,15 +63,11 @@
        ;; ogni tipo di link dovrebbe avere valori di default
        ;; appropriati.
        (links (list (udp<-> 'sp-alice 'ulb)
-		    (udp<-> 'ulb 'wlan0)
-		    (udp<-> 'ulb 'wlan1)
-		    (netlink-> 'wlan0 'ulb)
-		    (netlink-> 'wlan1 'ulb)
-		    (wifi<-> 'wlan0 'ap0
+		    (wifi<-> 'ulb 'ap0
 			     :bw (mib/s 18)
 			     :error-rate (% 10)
 			     :delay (usecs 1))
-		    (wifi<-> 'wlan1 'ap1
+		    (wifi<-> 'ulb 'ap1
 			     :bw (mib/s 13)
 			     :error-rate (% 3)
 			     :delay (usecs 1))
@@ -90,8 +86,6 @@
        (snr (new 'ulb-scenario
 		 :sp-alice (new 'sphone-sim :talk alice-talk)
 		 :ulb (new 'ulb-sim :qos qos)
-		 :wlan0 (new 'wlan-sim)
-		 :wlan1 (new 'wlan-sim)
 		 :ap0 (new 'apoint-sim)
 		 :ap1 (new 'apoint-sim)
 		 :proxy (new 'proxy-sim :qos qos)
