@@ -47,7 +47,6 @@
 (defclass ulb-sim (sim)
   ((outq  :initarg :outq  :type priority-queue)
    (inq   :initarg :inq   :type priority-queue)
-   (lo    :initarg :lo    :type socket)
    (wlan0 :initarg :wlan0 :type socket)
    (wlan1 :initarg :wlan1 :type socket)))
 
@@ -148,3 +147,16 @@
   (handler-bind ((locked #'wait)
 		 (not-connected #'abort))
     (access-link sim 'lo rps)))
+
+
+
+;; `out' tra simulatori diversi: da ulb-sim ad access-point
+(defmethod out ((us ulb-sim) (slot (eql 'wlan0)) (rps rtp-struct))
+  (handler-bind ((locked #'wait)
+		 (not-connected #'abort))
+    (access-link sim 'wlan0 rps)))
+
+(defmethod access-link ((us ulb-sim) (slot (eql 'wlan0)) (rps rtp-struct))
+  ;; wlan0 e' collegata ad ap0.
+  ;; il link che li collega e' nel link manager di scenario!
+  ;; TODO come accedere?!
