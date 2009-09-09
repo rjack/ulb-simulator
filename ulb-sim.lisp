@@ -97,11 +97,8 @@
 
 ;;; Metodo `IN'
 
-;; Argomenti: sim socket-name object
-;; Note: la macro `with-locked-socket' dovrebbe impostare `lo' come
-;; bloccata e aggiungere l'evento di unlocking agli eventi definiti
-;; nel body.
-(defmethod in ((us ulb-sim) (slot (eql 'lo)) (rp rtp-packet))
+;; Argomenti: sim elem object
+(defmethod in ((us ulb-sim) (oq outq-el) (rp rtp-packet))
   (with-slots (id lo tm) us
     (let ((rps (new 'rtp-struct :pkt rp :tstamp tm)))
       ;; diventera' `with-locked-socket'?
@@ -165,7 +162,7 @@
 ;; In definitiva `out' decide un'eventuale trasformazione dell'oggetto
 ;; e chiama `access-link' che fa il resto, ritornando gli eventi appropriati.
 
-(defmethod out ((us ulb-sim) (slot (eql 'lo)) (rps rtp-struct))
+(defmethod out ((us ulb-sim) (slot (eql 'lo)))
   (handler-bind ((locked #'wait)
 		 (not-connected #'abort))
     (access-link sim 'lo rps)))
