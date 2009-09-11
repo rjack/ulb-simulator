@@ -38,61 +38,29 @@
 (in-package :ulb-sim)
 
 
-;;; PROBLEMONE
-
-;; non posso usare specializzatori come (slot (eql 'outq)) nei metodi.
-;; * perdo generalita'
-;; * hardcoding dei nomi (ancora, perdo generalita')
-
-;; SOLUZIONE
-
-;; quando necessario, ogni elemento del sim ha il suo tipo privato,
-;; che serve solo a specializzare metodi solo su di se'.
-
-
-;; Definizione di simulatore ULB
-;; Diventera' `defsim' un giorno?
-;; NB: deve specificare solo la *conformazione* di un simulatore.
-;;     `sim' sara' una classe di de-sim
-;; I collegamenti tra componenti interni vengono creati in `setup-new'
-
-
-(defclass outq-el (priority-queue)
-  nil)
-
-(defclass inq-el (priority-queue)
-  nil)
-
-(defclass wlan-el (socket)
-  nil)
-
-
 (defclass ulb-sim (sim)
-  ((outq  :initarg :outq  :type outq-el)
-   (inq   :initarg :inq   :type inq-el)
-   (wlan0 :initarg :wlan0 :type wlan-el)
-   (wlan1 :initarg :wlan1 :type wlan-el)))
+  ((outq  :initarg :outq  :type bag)
+   (inq   :initarg :inq   :type bag)
+   (sent  :initarg :sent  :type bag)
+   (wlan0 :initarg :wlan0 :type bag)
+   (wlan1 :initarg :wlan1 :type bag)))
 
 
 (defmethod setup-new ((us ulb-sim))
-  (let ((links (list (ln<=> 'outq 'wlan0)
-		     (ln<=> 'outq 'wlan1)
-		     (ln-> 'wlan0 'outq)   ; netlink
-		     (ln-> 'wlan1 'outq)   ; netlink
-		     (ln-> 'wlan0 'inq)
-		     (ln-> 'wlan1 'inq))))
-    (with-slots (outq inq wlan0 wlan1 lm) us
-      (setf outq  (new 'outq-el))
-      (setf inq   (new 'inq-el))
-      (setf wlan0 (new 'wlan-el))
-      (setf wlan1 (new 'wlan-el))
-      (setf lm    (new 'link-manager :links links))
-      us)))
-
-
-(defmethod children ((us ulb-sim))
-  "Nessun simulatore interno, gli ulb-sim sono piatti"
-  nil)
+  (with-slots (outq inq wlan0 wlan1 sent)
+    (setf outq  (new 'bag :owner us))
+    (setf inq   (new 'bag :owner us))
+    (setf sent  (new 'bag :owner us))
+    (setf wlan0 (new 'bag :owner us))
+    (setf wlan1 (new 'bag :owner us))
+    (connect outq wlan0)
+    (connect wlan0 sent)
+    (connect wlan0 inq)
+    (connect outq wlan1)
+    (connect wlan1 sent)
+    (connect wlan1 inq)
+    (connect sent outq))
+  (call-next-method))
 
 
 ;;; Metodo `IN'
