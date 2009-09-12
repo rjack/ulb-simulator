@@ -81,11 +81,21 @@
 
 ;; METODI ULB-SIM
 
-(defmethod in! ((us ulb-sim) (ob out-bag)
-		(sp sphone-sim) (src bag)
-		(rp rtp-packet))
+(defmethod in! ((us ulb-sim) (ob out-bag) (rp rtp-packet))
   (let ((rps (new 'rtp-struct :pkt rp :tstamp (tm us))))
-    (insert! ob rps)
-    ;; NO LOCKING
-    ;; TODO AUTO FLUSHING
-    ))
+    (call-next-method us ob rps)))
+
+
+(defmethod choose-dest ((us ulb-sim) (ob out-bag) (rs rtp-struct))
+  "TODO: dest di ob sono wlan0 e wlan1, analizzo i log, calcolo
+   punteggio e scelgo la migliore"
+  nil)
+
+
+(defmethod out! ((s sim) (b bag) (o obj))
+  (handler-bind ((access-temporarily-unavailable #'wait)
+		 (access-denied #'abort)
+		 (no-destination #'abort))
+    (let ((dst (choose-dest s b o)))
+      (access? (owner dst) dst o)))
+  (in! s b o))
