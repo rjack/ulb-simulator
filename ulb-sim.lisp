@@ -92,8 +92,13 @@
   nil)
 
 
+;; Il metodo `out!' e' l'unico che genera eventi.
+;; La sequenza di chiamate e':
+;; - in! -> insert! -> flush!
+;; - continue-flush! | start-flush!
+;; - out! = nuovi eventi (in! e continue-flush!)
 (defmethod out! ((us ulb-sim) (ob out-bag) (rp rtp-packet))
-  (handler-bind ((access-temporarily-unavailable #'wait)
-		 (access-denied #'abort)
-		 (no-destination #'abort))
+  (handler-bind ((access-temporarily-unavailable #'wait) ; access?
+		 (access-denied #'abort)                 ; access?
+		 (no-destination #'abort))               ; choose-dest
     (call-next-method us ob rp)))
