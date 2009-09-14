@@ -92,10 +92,8 @@
   nil)
 
 
-(defmethod out! ((s sim) (b bag) (o obj))
+(defmethod out! ((us ulb-sim) (ob out-bag) (rp rtp-packet))
   (handler-bind ((access-temporarily-unavailable #'wait)
 		 (access-denied #'abort)
 		 (no-destination #'abort))
-    (let ((dst (choose-dest s b o)))
-      (access? (owner dst) dst o)))
-  (in! s b o))
+    (call-next-method us ob rp)))
