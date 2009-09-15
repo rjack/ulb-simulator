@@ -79,6 +79,13 @@
   (call-next-method))
 
 
+;; METODI SPHONE-SIM
+
+(defmethod out! ((ss sphone-sim) (ob out-fbag))
+  nil)
+
+
+
 ;; METODI ULB-SIM
 
 (defmethod in! ((us ulb-sim) (ob out-fbag) (rp rtp-packet))
@@ -97,8 +104,8 @@
 ;; - in! -> insert! -> flush!
 ;; - continue-flush! | start-flush!
 ;; - out! = nuovi eventi (in! e continue-flush!)
-(defmethod out! ((us ulb-sim) (ob out-fbag) (rp rtp-packet))
+(defmethod out! ((us ulb-sim) (ob out-fbag))
   (handler-bind ((access-temporarily-unavailable #'wait) ; access?
 		 (access-denied #'abort)                 ; access?
 		 (no-destination #'abort))               ; choose-dest
-    (call-next-method us ob rp)))
+    (call-next-method us ob)))
