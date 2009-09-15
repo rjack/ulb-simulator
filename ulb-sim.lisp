@@ -39,36 +39,36 @@
   ((tstamp :initarg :tstamp :accessor tstamp)
    (pkt    :initarg :pkt    :accessor pkt)))
 
-(defclass out-bag (bag)
+(defclass out-fbag (bag)
   nil)
-(defclass in-bag (bag)
+(defclass in-fbag (bag)
   nil)
-(defclass sent-bag (bag)
+(defclass sent-fbag (bag)
   nil)
-(defclass wlan-bag (bag)
+(defclass wlan-fbag (bag)
   nil)
 
 
 (defclass sphone-sim (sim)
-  ((outq  :initarg :outq  :type out-bag)
-   (inq   :initarg :inq   :type in-bag)))
+  ((outq  :initarg :outq  :type out-fbag)
+   (inq   :initarg :inq   :type in-fbag)))
 
 
 (defclass ulb-sim (sim)
-  ((outq  :initarg :outq  :type out-bag)
-   (inq   :initarg :inq   :type in-bag)
-   (sent  :initarg :sent  :type sent-bag)
-   (wlan0 :initarg :wlan0 :type wlan-bag)
-   (wlan1 :initarg :wlan1 :type wlan-bag)))
+  ((outq  :initarg :outq  :type out-fbag)
+   (inq   :initarg :inq   :type in-fbag)
+   (sent  :initarg :sent  :type sent-fbag)
+   (wlan0 :initarg :wlan0 :type wlan-fbag)
+   (wlan1 :initarg :wlan1 :type wlan-fbag)))
 
 
 (defmethod setup-new! ((us ulb-sim))
   (with-slots (outq inq wlan0 wlan1 sent) us
-    (setf outq  (new 'out-bag :owner us))
-    (setf inq   (new 'in-bag :owner us))
-    (setf sent  (new 'sent-bag :owner us))
-    (setf wlan0 (new 'wlan-bag :owner us))
-    (setf wlan1 (new 'wlan-bag :owner us))
+    (setf outq  (new 'out-fbag :owner us))
+    (setf inq   (new 'in-fbag :owner us))
+    (setf sent  (new 'sent-fbag :owner us))
+    (setf wlan0 (new 'wlan-fbag :owner us))
+    (setf wlan1 (new 'wlan-fbag :owner us))
     (connect! outq wlan0)
     (connect! wlan0 sent)
     (connect! wlan0 inq)
@@ -81,12 +81,12 @@
 
 ;; METODI ULB-SIM
 
-(defmethod in! ((us ulb-sim) (ob out-bag) (rp rtp-packet))
+(defmethod in! ((us ulb-sim) (ob out-fbag) (rp rtp-packet))
   (let ((rps (new 'rtp-struct :pkt rp :tstamp (tm us))))
     (call-next-method us ob rps)))
 
 
-(defmethod choose-dest ((us ulb-sim) (ob out-bag) (rs rtp-struct))
+(defmethod choose-dest ((us ulb-sim) (ob out-fbag) (rs rtp-struct))
   "TODO: dest di ob sono wlan0 e wlan1, analizzo i log, calcolo
    punteggio e scelgo la migliore"
   nil)
@@ -97,7 +97,7 @@
 ;; - in! -> insert! -> flush!
 ;; - continue-flush! | start-flush!
 ;; - out! = nuovi eventi (in! e continue-flush!)
-(defmethod out! ((us ulb-sim) (ob out-bag) (rp rtp-packet))
+(defmethod out! ((us ulb-sim) (ob out-fbag) (rp rtp-packet))
   (handler-bind ((access-temporarily-unavailable #'wait) ; access?
 		 (access-denied #'abort)                 ; access?
 		 (no-destination #'abort))               ; choose-dest
