@@ -81,9 +81,14 @@
 
 ;; METODI SPHONE-SIM
 
-(defmethod out! ((ss sphone-sim) (ob out-fbag))
-  nil)
+;; TODO conversazione: lista di eventi in! pregenerata che inietta gli
+;; rtp-packet nel softphone.
 
+(defmethod out! ((ss sphone-sim) (ob out-fbag))
+  (handler-bind ((access-temporarily-unavailable #'abort)
+		 (access-denied #'abort)
+		 (no-destination #'abort))
+    (call-next-method ss ob)))
 
 
 ;; METODI ULB-SIM
