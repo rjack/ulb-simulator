@@ -39,44 +39,56 @@
   ((tstamp :initarg :tstamp :accessor tstamp)
    (pkt    :initarg :pkt    :accessor pkt)))
 
-(defclass out-fbag (bag)
+
+(defclass out-bag (bag)
   nil)
-(defclass in-fbag (bag)
+(defclass in-bag (bag)
   nil)
-(defclass sent-fbag (bag)
+(defclass out-fbag (fbag)
   nil)
-(defclass wlan-fbag (bag)
+(defclass in-fbag (fbag)
+  nil)
+(defclass sent-bag (bag)
+  nil)
+(defclass wlan-fbag (fbag)
   nil)
 
 
 (defclass sphone-sim (sim)
-  ((outq  :initarg :outq  :type out-fbag)
-   (inq   :initarg :inq   :type in-fbag)))
+  ((out   :initarg :out :accessor out :type out-fbag)
+   (in    :initarg :in  :accessor in  :type in-bag)))
+
+
+(defmethod setup-new! ((ss sphone-sim))
+  (with-slots (out in) ss
+    (setf out (new 'out-fbag :owner ss))
+    (setf in (new 'in-bag :owner ss)))
+  (call-next-method ss))
 
 
 (defclass ulb-sim (sim)
-  ((outq  :initarg :outq  :type out-fbag)
-   (inq   :initarg :inq   :type in-fbag)
-   (sent  :initarg :sent  :type sent-fbag)
+  ((out   :initarg :out   :type out-fbag)
+   (in    :initarg :in    :type in-fbag)
+   (sent  :initarg :sent  :type sent-bag)
    (wlan0 :initarg :wlan0 :type wlan-fbag)
    (wlan1 :initarg :wlan1 :type wlan-fbag)))
 
 
 (defmethod setup-new! ((us ulb-sim))
-  (with-slots (outq inq wlan0 wlan1 sent) us
-    (setf outq  (new 'out-fbag :owner us))
-    (setf inq   (new 'in-fbag :owner us))
-    (setf sent  (new 'sent-fbag :owner us))
+  (with-slots (out in wlan0 wlan1 sent) us
+    (setf out  (new 'out-fbag :owner us))
+    (setf in   (new 'in-fbag :owner us))
+    (setf sent  (new 'sent-bag :owner us))
     (setf wlan0 (new 'wlan-fbag :owner us))
     (setf wlan1 (new 'wlan-fbag :owner us))
-    (connect! outq wlan0)
+    (connect! out wlan0)
     (connect! wlan0 sent)
-    (connect! wlan0 inq)
-    (connect! outq wlan1)
+    (connect! wlan0 in)
+    (connect! out wlan1)
     (connect! wlan1 sent)
-    (connect! wlan1 inq)
-    (connect! sent outq))
-  (call-next-method))
+    (connect! wlan1 in)
+    (connect! sent out))
+  (call-next-method us))
 
 
 ;; METODI SPHONE-SIM
@@ -89,6 +101,10 @@
 		 (access-denied #'abort)
 		 (no-destination #'abort))
     (call-next-method ss ob)))
+
+
+(defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-packet))
+  (call-next-method ss ib rp))
 
 
 ;; METODI ULB-SIM
@@ -104,11 +120,6 @@
   nil)
 
 
-;; Il metodo `out!' e' l'unico che genera eventi.
-;; La sequenza di chiamate e':
-;; - in! -> insert! -> flush!
-;; - continue-flush! | start-flush!
-;; - out! = nuovi eventi (in! e continue-flush!)
 (defmethod out! ((us ulb-sim) (ob out-fbag))
   (handler-bind ((access-temporarily-unavailable #'wait) ; access?
 		 (access-denied #'abort)                 ; access?
