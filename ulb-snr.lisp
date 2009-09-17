@@ -31,8 +31,8 @@
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
 
-(defparameter *a-sp* (new 'sphone-sim))
-(defparameter *b-sp* (new 'sphone-sim))
+(defparameter *a-sp* (new 'sphone-sim :name "ALICE PHONE"))
+(defparameter *b-sp* (new 'sphone-sim :name "BOB PHONE"))
 
 (connect! (out *a-sp*)
 	  (in *b-sp*))
