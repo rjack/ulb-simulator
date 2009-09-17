@@ -40,3 +40,9 @@
 	  (in *a-sp*))
 
 (trace in! out! fire! remove! insert! peek dead? flush? schedule!)
+
+
+(schedule! (new 'event :tm 0
+		:owner-id (id *a-sp*)
+		:fn (lambda ()
+		      (in! *a-sp* (out *a-sp*) (new 'rtp-packet)))))
