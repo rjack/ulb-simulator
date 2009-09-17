@@ -38,3 +38,5 @@
 	  (in *b-sp*))
 (connect! (out *b-sp*)
 	  (in *a-sp*))
+
+(trace in! out! fire! remove! insert! peek dead? flush? schedule!)
