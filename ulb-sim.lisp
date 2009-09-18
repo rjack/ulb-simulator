@@ -31,13 +31,14 @@
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
 
+
 (defclass rtp-packet (obj)
   ;; TODO definire slot
   nil)
 
 (defclass rtp-struct (obj)
-  ((tstamp :initarg :tstamp :accessor tstamp)
-   (pkt    :initarg :pkt    :accessor pkt)))
+  ((tstamp   :initarg :tstamp   :accessor tstamp)
+   (pkt      :initarg :pkt      :accessor pkt)))
 
 
 (defclass out-bag (bag)
