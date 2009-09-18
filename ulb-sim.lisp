@@ -38,7 +38,7 @@
 
 (defmethod size ((rp rtp-packet))
   ;; metodo farlocco, solo per test
-  100)
+  (mebibytes 1))
 
 (defclass rtp-struct (obj)
   ((tstamp   :initarg :tstamp   :accessor tstamp)

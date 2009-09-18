@@ -36,13 +36,17 @@
 (defparameter *rtp<->* nil)
 
 
-(trace in! out! fire! remove! insert! peek dead? flush? schedule!)
+;;(trace in! out! fire! remove! insert! peek dead? flush? schedule!)
 
 
-(defun init! ()
+(defun init! (num)
+  (setf *clock* 0)
+
   (setf *a-sp*   (new 'sphone-sim :name "ALICE PHONE"))
   (setf *b-sp*   (new 'sphone-sim :name "BOB PHONE"))
-  (setf *rtp<->* (new 'ln<-> :name "RTP<->" :bw 5 :delay 10 :err-rate 50))
+  (setf *rtp<->* (new 'ln<-> :name "RTP<->"
+		      :bw (kilobytes-per-second 80)
+		      :delay (msecs 100) :err-rate 0))
 
   (connect! (out *a-sp*) (a2b *rtp<->*))
   (connect! (a2b *rtp<->*) (in *b-sp*))
@@ -53,8 +57,8 @@
   (dolist (ev (events!))
     (setf (dead? ev) t))
 
-  (dotimes (i 100)
-    (schedule! (new 'event :tm i
+  (dotimes (i num)
+    (schedule! (new 'event :tm (msecs i)
 		    :owner-id (id *a-sp*)
 		    :fn (lambda ()
 			  (in! *a-sp* (out *a-sp*) (new 'rtp-packet)))))))
