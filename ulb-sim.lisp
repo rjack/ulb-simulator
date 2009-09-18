@@ -102,7 +102,7 @@
 ;; rtp-packet nel softphone.
 
 (defmethod out! ((ss sphone-sim) (ob out-fbag))
-  (handler-bind ((access-temporarily-unavailable #'abort)
+  (handler-bind ((access-temporarily-unavailable #'wait)
 		 (access-denied #'abort)
 		 (no-destination #'abort))
     (call-next-method ss ob)))
