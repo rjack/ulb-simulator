@@ -36,6 +36,10 @@
   ;; TODO definire slot
   nil)
 
+(defmethod size ((rp rtp-packet))
+  ;; metodo farlocco, solo per test
+  100)
+
 (defclass rtp-struct (obj)
   ((tstamp   :initarg :tstamp   :accessor tstamp)
    (pkt      :initarg :pkt      :accessor pkt)))
