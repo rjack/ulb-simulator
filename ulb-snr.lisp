@@ -31,22 +31,36 @@
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
 
-(defparameter *a-sp* (new 'sphone-sim :name "ALICE PHONE"))
-(defparameter *b-sp* (new 'sphone-sim :name "BOB PHONE"))
-(defparameter *rtp<->* (new 'ln<-> :name "RTP<->" :bw 5 :delay 10 :err-rate 50))
-
-(connect! (out *a-sp*) (a2b *rtp<->*))
-(connect! (a2b *rtp<->*) (in *b-sp*))
-
-(connect! (out *b-sp*) (b2a *rtp<->*))
-(connect! (b2a *rtp<->*) (in *a-sp*))
+(defparameter *a-sp* nil)
+(defparameter *b-sp* nil)
+(defparameter *rtp<->* nil)
 
 
 (trace in! out! fire! remove! insert! peek dead? flush? schedule!)
 
 
-(dotimes (i 100)
-  (schedule! (new 'event :tm i
-		  :owner-id (id *a-sp*)
-		  :fn (lambda ()
-			(in! *a-sp* (out *a-sp*) (new 'rtp-packet))))))
+(defun init! ()
+  (setf *a-sp*   (new 'sphone-sim :name "ALICE PHONE"))
+  (setf *b-sp*   (new 'sphone-sim :name "BOB PHONE"))
+  (setf *rtp<->* (new 'ln<-> :name "RTP<->" :bw 5 :delay 10 :err-rate 50))
+
+  (connect! (out *a-sp*) (a2b *rtp<->*))
+  (connect! (a2b *rtp<->*) (in *b-sp*))
+
+  (connect! (out *b-sp*) (b2a *rtp<->*))
+  (connect! (b2a *rtp<->*) (in *a-sp*))
+
+  (dolist (ev (events!))
+    (setf (dead? ev) t))
+
+  (dotimes (i 100)
+    (schedule! (new 'event :tm i
+		    :owner-id (id *a-sp*)
+		    :fn (lambda ()
+			  (in! *a-sp* (out *a-sp*) (new 'rtp-packet)))))))
+
+
+(defun run! ()
+  (handler-case (loop :do (fire!))
+    (error ()
+      (format t "arrivati: ~a~%" (length (elements (in *b-sp*)))))))
