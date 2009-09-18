@@ -36,11 +36,12 @@
 (defparameter *rtp<->* nil)
 
 
-;;(trace in! out! fire! remove! insert! peek dead? flush? schedule!)
+(trace in! out! fire! remove! insert! peek dead? flush? schedule! wait access? wakeup!)
 
 
 (defun init! (num)
   (setf *clock* 0)
+  (setf *evs* (list))
 
   (setf *a-sp*   (new 'sphone-sim :name "ALICE PHONE"))
   (setf *b-sp*   (new 'sphone-sim :name "BOB PHONE"))
@@ -54,11 +55,10 @@
   (connect! (out *b-sp*) (b2a *rtp<->*))
   (connect! (b2a *rtp<->*) (in *a-sp*))
 
-  (dolist (ev (events!))
-    (setf (dead? ev) t))
 
   (dotimes (i num)
     (schedule! (new 'event :tm (msecs i)
+		    :desc "kickstart"
 		    :owner-id (id *a-sp*)
 		    :fn (lambda ()
 			  (in! *a-sp* (out *a-sp*) (new 'rtp-packet)))))))
