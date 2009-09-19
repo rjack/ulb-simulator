@@ -72,26 +72,40 @@
 
 
 (defclass ulb-sim (sim)
-  ((out   :initarg :out   :type out-fbag)
-   (in    :initarg :in    :type in-fbag)
-   (sent  :initarg :sent  :type sent-bag)
-   (wlan0 :initarg :wlan0 :type wlan-fbag)
-   (wlan1 :initarg :wlan1 :type wlan-fbag)))
+  ((out    :initarg :out    :type out-fbag)
+   (in     :initarg :in     :type in-fbag)
+   (sent   :initarg :sent   :type sent-bag)
+   (w0-out :initarg :w0-out :type wlan-fbag)
+   (w0-in  :initarg :w0-in  :type wlan-fbag)
+   (w1-out :initarg :w1-out :type wlan-fbag)
+   (w1-in  :initarg :w1-in  :type wlan-fbag)))
+
+
+(defclass ulb-dummy-sim (ulb-sim)
+  nil)
+
+(defclass ulb-simple-sim (ulb-sim)
+  nil)
+
+(defclass ulb-stoca-sim (ulb-sim)
+  nil)
 
 
 (defmethod setup-new! ((us ulb-sim))
-  (with-slots (out in wlan0 wlan1 sent) us
+  (with-slots (out in w0-out w0-in w1-out w1-in sent) us
     (setf out  (new 'out-fbag :owner us))
     (setf in   (new 'in-fbag :owner us))
     (setf sent  (new 'sent-bag :owner us))
-    (setf wlan0 (new 'wlan-fbag :owner us))
-    (setf wlan1 (new 'wlan-fbag :owner us))
-    (connect! out wlan0)
-    (connect! wlan0 sent)
-    (connect! wlan0 in)
-    (connect! out wlan1)
-    (connect! wlan1 sent)
-    (connect! wlan1 in)
+    (setf w0-out (new 'wlan-fbag :owner us))
+    (setf w0-in (new 'wlan-fbag :owner us))
+    (setf w1-out (new 'wlan-fbag :owner us))
+    (setf w1-in (new 'wlan-fbag :owner us))
+    (connect! out w0-out)
+    (connect! w0-out sent)
+    (connect! w0-in in)
+    (connect! out w1-out)
+    (connect! w1-out sent)
+    (connect! w1-in in)
     (connect! sent out))
   (call-next-method us))
 
