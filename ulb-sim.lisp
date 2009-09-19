@@ -91,6 +91,8 @@
   nil)
 
 
+;; METODI ULB-SIM
+
 (defmethod setup-new! ((us ulb-sim))
   (with-slots (out in w0-out w0-in w1-out w1-in sent) us
     (setf out  (new 'out-fbag :owner us))
@@ -110,6 +112,34 @@
   (call-next-method us))
 
 
+;; METODI ULB-DUMMY-SIM
+
+;; praticamente tutti i default vanno bene?
+;; le wlan devono scartare gli ack degli access point.
+
+;; METODI ULB-STOCA-SIM
+
+
+(defmethod in! ((us ulb-stoca-sim) (ob out-fbag) (rp rtp-packet))
+  (let ((rs (new 'rtp-struct :pkt rp :tstamp (gettime!))))
+    (call-next-method us ob rp)))
+
+
+(defmethod insert! ((ob out-fbag) (rs rtp-struct))
+  "Inserisce e ordina le rtp-struct in ordine ascendente di timestamp"
+  (call-next-method)
+  (! (setf (elements ob)
+	   (stable-sort (elements ob) #'< :key #'tstamp))))
+
+
+(defmethod choose-dest ((us ulb-stoca-sim) (ob out-fbag)
+			(rs rtp-struct))
+  ;; TODO: analizzare i log di ogni interfaccia e assegnare un voto a ognuna:
+  ;; scegliere quella col voto migliore.
+  (random-pick (dests ob)))
+
+
+
 ;; METODI SPHONE-SIM
 
 ;; TODO conversazione: lista di eventi in! pregenerata che inietta gli
@@ -124,23 +154,3 @@
 
 (defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-packet))
   (call-next-method ss ib rp))
-
-
-;; METODI ULB-SIM
-
-(defmethod in! ((us ulb-sim) (ob out-fbag) (rp rtp-packet))
-  (let ((rps (new 'rtp-struct :pkt rp :tstamp (tm us))))
-    (call-next-method us ob rps)))
-
-
-(defmethod choose-dest ((us ulb-sim) (ob out-fbag) (rs rtp-struct))
-  "TODO: dest di ob sono wlan0 e wlan1, analizzo i log, calcolo
-   punteggio e scelgo la migliore"
-  nil)
-
-
-(defmethod out! ((us ulb-sim) (ob out-fbag))
-  (handler-bind ((access-temporarily-unavailable #'wait) ; access?
-		 (access-denied #'abort)                 ; access?
-		 (no-destination #'abort))               ; choose-dest
-    (call-next-method us ob)))
