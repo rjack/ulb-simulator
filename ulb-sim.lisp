@@ -122,7 +122,7 @@
 
 (defmethod in! ((us ulb-stoca-sim) (ob out-fbag) (rp rtp-packet))
   (let ((rs (new 'rtp-struct :pkt rp :tstamp (gettime!))))
-    (call-next-method us ob rp)))
+    (call-next-method us ob rs)))
 
 
 (defmethod insert! ((ob out-fbag) (rs rtp-struct))
