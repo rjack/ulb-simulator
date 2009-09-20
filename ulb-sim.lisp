@@ -81,7 +81,22 @@
 
 
 (defclass ulb-wlan-out-bag (fbag)
-  nil)
+  ((fw-capab    :initarg :fw-capa     :accessor fw-capa     :documentation "Capacita' di notifica del firmware: ack, nack o entrambi")
+   (err-no      :initarg :err-no      :accessor err-no      :documentation "Numero di errori di invio")
+   (max-err-no  :initarg :max-err-no  :accessor max-err-no  :documentation "Massimo numero di errori d'invio")
+   (retry-tmout :initarg :retry-tmout :accessor retry-tmout :documentation "Tempo di attesa prima di riprovare a inviare il frame")
+   (retry-event :initarg :retry-event :accessor retry-event :documentation "Riferimento all'evento schedulato per re-invio frame")))
+
+
+(defmethod setup-new! ((wob ulb-wlan-out-bag))
+  (with-slots (err-no max-err-no retry-tmout retry-event) wob
+    (setf err-no 0)
+    (setf max-err-no 7)            ; valore preso dal paper di ghini
+    (setf retry-tmout (usecs 3))   ; http://www.air-stream.org.au/ACK_Timeouts dice 2, ma il retry-event viene schedulato prima
+    (setf retry-event nil))
+  (call-next-method))
+
+
 (defclass ulb-wlan-in-fbag (fbag)
   nil)
 
@@ -170,15 +185,19 @@
 
 (defmethod out! ((us ulb-stoca-sim) (uob ulb-out-fbag)
 		 dst-bag dst-sim)
+  "out-fbag -> best wlan"
   ;; TODO scegliere best-wlan in modo piu' rigoroso.
-  (let ((best-wlan (random-pick (dests uob))))
-    (call-next-method us uob best-wlan (owner best-wlan))))
+  (handler-bind ((access-temporarily-unavailable #'abort)
+		 (access-denied #'abort)
+		 (no-destination #'abort))
+    (let ((best-wlan (random-pick (dests uob))))
+      (call-next-method us uob best-wlan (owner best-wlan)))))
 
 
 ;; WLAN-OUT-BAG
 
-
 (defmethod default-dest ((us ulb-stoca-sim) (wob ulb-wlan-out-bag))
+  "Destinazione di default per le wlan e' il link"
   (let ((ln-bag (find-if (lambda (d)
 			   (not (typep d 'ulb-sent-bag)))
 			 (dests wob))))
@@ -194,20 +213,58 @@
   (lock! wob)
   (call-next-method)
   ;; a questo punto wob e' lockata, ha una sola rtp-struct e la
-  ;; inoltra al link wifi.
-  (let* ((ln-bag (default-dest us wob))
-	 (ln (owner ln-bag)))
-    (schedule! (new 'event :owner-id (id us)
-		    :desc (format nil "out! ~a ~a ~a ~a" us wob ln-bag ln)
-		    :tm (next-out-time us wob)
-		    :fn (lambda ()
-			  (out! us wob ln-bag ln))))))
+  ;; inoltra al link wifi (uso t t perche' il link e' dest di default)
+  (schedule! (new 'event :owner-id (id us)
+		  :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
+		  :tm (next-out-time us wob)
+		  :fn (lambda ()
+			(out! us wob t t)))))
+
+
+(defmethod give-up! ((wob ulb-wlan-out-bag))
+  ;; reset wob
+  ;; notifica TED se il firmware e' in grado di notificare NACK
+  (error 'not-implemented))
+
+
+(defmethod handle-send-err! ((wob ulb-wlan-out-bag))
+  (incf (err-no wob))
+  (if (< (err-no wob)
+	 (max-err-no wob))
+      (out! (owner wob) wob t t)    ; riprova
+      (give-up! wob)))
 
 
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
 		 (dst-bag bag) (dst-sim ln<->))
   "wlan -> wifi-link"
-  (error 'not-implemented))
+  ;; schedula l'in! per la destinazione
+  ;; schedula il retry event
+  ;; schedula l'out! per la bag sent, solo se siamo al primo invio
+  ;; TODO LOG
+  (assert (< (err-no wob)
+	     (max-err-no wob))
+	  nil "out! wob: oltrepassato numero massimo di invii!")
+  (handler-bind ((access-temporarily-unavailable #'wait)
+		 (access-denied #'abort)
+		 (no-destination #'abort))
+    (call-next-method))
+  (let ((retry-ev (new 'event :tm (+ (gettime!) (retry-tmout wob))
+		       :desc (format nil "retry timeout expired ~a" wob)
+		       :owner-id (id wob)
+		       :fn (lambda ()
+			     (handle-send-err! wob)))))
+    (assert (or (null (retry-event wob))
+		(dead? (retry-event wob)))
+	    nil "out! wob: l'evento precedente e' ancora attivo!")
+    (setf (retry-event wob) retry-ev)
+    (schedule! retry-ev)
+    (when (zerop (err-no wob))   ; solo al primo tentativo
+      (schedule! (new 'event :tm (gettime!)
+		      :desc "Invio pkt tra quelli spediti"
+		      :owner-if (id wob)
+		      :fn (lambda ()
+			    (out! us wob (sent us) us)))))))
 
 
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
