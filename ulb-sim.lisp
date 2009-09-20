@@ -75,22 +75,26 @@
 
 (defclass ulb-out-fbag (fbag)
   nil)
+
 (defclass ulb-sent-bag (bag)
   nil)
+
+
 (defclass ulb-wlan-out-bag (fbag)
   nil)
 (defclass ulb-wlan-in-fbag (fbag)
   nil)
 
+
 (defclass ulb-sim (sim)
   ((sendmsg-id :initarg :sendmsg-id :accessor sendmsg-id)
-   (out    :initarg :out    :type ulb-out-fbag)
-   (in     :initarg :in     :type in-fbag)
-   (sent   :initarg :sent   :type ulb-sent-bag)
-   (w0-out :initarg :w0-out :type ulb-wlan-out-bag)
-   (w0-in  :initarg :w0-in  :type ulb-wlan-in-fbag)
-   (w1-out :initarg :w1-out :type ulb-wlan-out-bag)
-   (w1-in  :initarg :w1-in  :type ulb-wlan-in-fbag)))
+   (out        :initarg :out        :accessor out    :type ulb-out-fbag)
+   (in         :initarg :in         :accessor in     :type in-fbag)
+   (sent       :initarg :sent       :accessor sent   :type ulb-sent-bag)
+   (w0-out     :initarg :w0-out     :accessor w0-out :type ulb-wlan-out-bag)
+   (w0-in      :initarg :w0-in      :accessor w0-in  :type ulb-wlan-in-fbag)
+   (w1-out     :initarg :w1-out     :accessor w1-out :type ulb-wlan-out-bag)
+   (w1-in      :initarg :w1-in      :accessor w1-in  :type ulb-wlan-in-fbag)))
 
 
 (defclass ulb-dummy-sim (ulb-sim)
