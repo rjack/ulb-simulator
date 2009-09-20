@@ -45,6 +45,8 @@
    (pkt      :initarg :pkt      :accessor pkt)))
 
 
+;; Bag generiche
+
 (defclass out-bag (bag)
   nil)
 (defclass in-bag (bag)
@@ -53,11 +55,9 @@
   nil)
 (defclass in-fbag (fbag)
   nil)
-(defclass sent-bag (bag)
-  nil)
-(defclass wlan-fbag (fbag)
-  nil)
 
+
+;; Definizioni per sphone-sim.
 
 (defclass sphone-sim (sim)
   ((out   :initarg :out :accessor out :type out-fbag)
@@ -68,17 +68,29 @@
   (with-slots (out in) ss
     (setf out (new 'out-fbag :owner ss))
     (setf in (new 'in-bag :owner ss)))
-  (call-next-method ss))
+  (call-next-method))
 
+
+;; Definizioni per ulb-sim e derivati.
+
+(defclass ulb-out-fbag (fbag)
+  nil)
+(defclass ulb-sent-bag (bag)
+  nil)
+(defclass ulb-wlan-out-bag (fbag)
+  nil)
+(defclass ulb-wlan-in-fbag (fbag)
+  nil)
 
 (defclass ulb-sim (sim)
-  ((out    :initarg :out    :type out-fbag)
+  ((sendmsg-id :initarg :sendmsg-id :accessor sendmsg-id)
+   (out    :initarg :out    :type ulb-out-fbag)
    (in     :initarg :in     :type in-fbag)
-   (sent   :initarg :sent   :type sent-bag)
-   (w0-out :initarg :w0-out :type wlan-fbag)
-   (w0-in  :initarg :w0-in  :type wlan-fbag)
-   (w1-out :initarg :w1-out :type wlan-fbag)
-   (w1-in  :initarg :w1-in  :type wlan-fbag)))
+   (sent   :initarg :sent   :type ulb-sent-bag)
+   (w0-out :initarg :w0-out :type ulb-wlan-out-bag)
+   (w0-in  :initarg :w0-in  :type ulb-wlan-in-fbag)
+   (w1-out :initarg :w1-out :type ulb-wlan-out-bag)
+   (w1-in  :initarg :w1-in  :type ulb-wlan-in-fbag)))
 
 
 (defclass ulb-dummy-sim (ulb-sim)
@@ -94,14 +106,15 @@
 ;; METODI ULB-SIM
 
 (defmethod setup-new! ((us ulb-sim))
-  (with-slots (out in w0-out w0-in w1-out w1-in sent) us
-    (setf out  (new 'out-fbag :owner us))
-    (setf in   (new 'in-fbag :owner us))
-    (setf sent  (new 'sent-bag :owner us))
-    (setf w0-out (new 'wlan-fbag :owner us))
-    (setf w0-in (new 'wlan-fbag :owner us))
-    (setf w1-out (new 'wlan-fbag :owner us))
-    (setf w1-in (new 'wlan-fbag :owner us))
+  (with-slots (sendmsg-id out in w0-out w0-in w1-out w1-in sent) us
+    (setf sendmsg-id -1)
+    (setf out    (new 'ulb-out-fbag     :owner us))
+    (setf in     (new 'in-fbag          :owner us))
+    (setf sent   (new 'ulb-sent-bag     :owner us))
+    (setf w0-out (new 'ulb-wlan-out-bag :owner us))
+    (setf w0-in  (new 'ulb-wlan-in-fbag :owner us))
+    (setf w1-out (new 'ulb-wlan-out-bag :owner us))
+    (setf w1-in  (new 'ulb-wlan-in-fbag :owner us))
     (connect! out w0-out)
     (connect! w0-out sent)
     (connect! w0-in in)
@@ -109,34 +122,101 @@
     (connect! w1-out sent)
     (connect! w1-in in)
     (connect! sent out))
-  (call-next-method us))
+  (call-next-method))
+
+
+(defmethod sendmsg-getid ((us ulb-sim))
+  (incf (sendmsg-id us)))
 
 
 ;; METODI ULB-DUMMY-SIM
 
 ;; praticamente tutti i default vanno bene?
-;; le wlan devono scartare gli ack degli access point.
+;; le wlan devono scartare gli ack degli access point quando li
+;; ricevono.
+
 
 ;; METODI ULB-STOCA-SIM
 
+;; ULB-OUT-FBAG
 
-(defmethod in! ((us ulb-stoca-sim) (ob out-fbag) (rp rtp-packet))
+(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (rp rtp-packet)
+		dst-bag dst-sim)
+  "ULB-STOCA riceve rtp da sphone, lo mette in una struct e imposta il
+   tstamp di arrivo"
   (let ((rs (new 'rtp-struct :pkt rp :tstamp (gettime!))))
-    (call-next-method us ob rs)))
+    (call-next-method us uob rs)))
 
 
-(defmethod insert! ((ob out-fbag) (rs rtp-struct))
-  "Inserisce e ordina le rtp-struct in ordine ascendente di timestamp"
+(defmethod insert! ((uob ulb-out-fbag) (rs rtp-struct) &key)
+  "Dentro a out le rtp-struct sono in ordine ascendente di timestamp"
   (call-next-method)
-  (! (setf (elements ob)
-	   (stable-sort (elements ob) #'< :key #'tstamp))))
+  (! (setf (elements uob)
+	   (stable-sort (elements uob) #'< :key #'tstamp))))
 
 
-(defmethod choose-dest ((us ulb-stoca-sim) (ob out-fbag)
-			(rs rtp-struct))
-  ;; TODO: analizzare i log di ogni interfaccia e assegnare un voto a ognuna:
-  ;; scegliere quella col voto migliore.
-  (random-pick (dests ob)))
+(defmethod remove! ((uob ulb-out-fbag) &key)
+  "Se un rtp-struct e' piu' vecchia di 150 ms viene scartata."
+  (let ((rs (call-next-method uob)))
+    (if (>= (- (gettime!) (tstamp rs))
+	    (msecs 150))
+	(remove! uob)   ; questo scartato, riprova
+	rs)))
+
+
+(defmethod out! ((us ulb-stoca-sim) (uob ulb-out-fbag)
+		 dst-bag dst-sim)
+  ;; TODO scegliere best-wlan in modo piu' rigoroso.
+  (let ((best-wlan (random-pick (dests uob))))
+    (call-next-method us uob best-wlan (owner best-wlan))))
+
+
+;; WLAN-OUT-BAG
+
+
+(defmethod default-dest ((us ulb-stoca-sim) (wob ulb-wlan-out-bag))
+  (let ((ln-bag (find-if (lambda (d)
+			   (not (typep d 'ulb-sent-bag)))
+			 (dests wob))))
+    (if (null ln-bag)
+	(error 'no-destination)
+	ln-bag)))
+
+
+(defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (rs rtp-struct)
+		dst-bag dst-sim)
+  (when (not (empty? wob))
+    (error "in! wlan non e' vuota!"))
+  (lock! wob)
+  (call-next-method)
+  ;; a questo punto wob e' lockata, ha una sola rtp-struct e la
+  ;; inoltra al link wifi.
+  (let* ((ln-bag (default-dest us wob))
+	 (ln (owner ln-bag)))
+    (schedule! (new 'event :owner-id (id us)
+		    :desc (format nil "out! ~a ~a ~a ~a" us wob ln-bag ln)
+		    :tm (next-out-time us wob)
+		    :fn (lambda ()
+			  (out! us wob ln-bag ln))))))
+
+
+(defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
+		 (dst-bag bag) (dst-sim ln<->))
+  "wlan -> wifi-link"
+  (error 'not-implemented))
+
+
+(defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
+		 (dst-bag ulb-sent-bag) (dst-sim ulb-stoca-sim))
+  "wlan -> sent-bag"
+  (error 'not-implemented))
+
+
+(defmethod remove! ((wob ulb-wlan-out-bag) &key)
+  (let ((qty (length (elements wob))))
+    (if (not (= 1 qty))
+	(error "remove! ulb-wlan-out-bag: ~a elementi invece che solo 1!" qty)
+	(clone (first (elements wob))))))
 
 
 
@@ -145,12 +225,14 @@
 ;; TODO conversazione: lista di eventi in! pregenerata che inietta gli
 ;; rtp-packet nel softphone.
 
-(defmethod out! ((ss sphone-sim) (ob out-fbag))
+(defmethod out! ((ss sphone-sim) (ob out-fbag)
+		 dst-bag dst-sim)
   (handler-bind ((access-temporarily-unavailable #'wait)
 		 (access-denied #'abort)
 		 (no-destination #'abort))
-    (call-next-method ss ob)))
+    (call-next-method)))
 
 
-(defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-packet))
-  (call-next-method ss ib rp))
+(defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-packet)
+		dst-bag dst-sim)
+  (call-next-method))
