@@ -61,10 +61,12 @@
 		    :desc "kickstart"
 		    :owner-id (id *a-sp*)
 		    :fn (lambda ()
-			  (in! *a-sp* (out *a-sp*) (new 'rtp-packet)))))))
+			  (in! *a-sp* (out *a-sp*)
+			       (new 'rtp-packet)))))))
 
 
 (defun run! ()
   (handler-case (loop :do (fire!))
-    (error ()
-      (format t "arrivati: ~a~%" (length (elements (in *b-sp*)))))))
+    (no-events ()
+      (format t "arrivati: ~a~%"
+	      (length (elements (in *b-sp*)))))))
