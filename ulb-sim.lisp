@@ -32,13 +32,45 @@
 
 
 
-(defclass rtp-packet (obj)
-  ;; TODO definire slot
+(defclass pkt (obj)
+  ((hdr   :initarg :hdr :accessor hdr)
+   (pld   :initarg :pld :accessor pld)))
+
+
+(defclass rtp-pkt (pkt)
   nil)
 
-(defmethod size ((rp rtp-packet))
-  ;; metodo farlocco, solo per test
-  (mebibytes 1))
+
+(defmethod setup-new! ((rp rtp-pkt))
+  (set-unbound-slots rp
+    (hdr (bytes 12))))
+
+
+(defclass udp-pkt (pkt)
+  nil)
+
+(defmethod setup-new! ((up udp-pkt))
+  (set-unbound-slots up
+    (hdr (bytes 8))))
+
+(defclass wifi-frame (pkt)
+  nil)
+
+(defmethod size ((wf wifi-frame))
+  (+ (hdr wf)
+     (if (typep (pld wf) 'pkt)
+	 (size (pld wf))
+	 0)))   ; gli ack wifi hanno l'id che ackano come pld
+
+(defmethod setup-new! ((wf wifi-frame))
+  (set-unbound-slots wf
+    (hdr (bytes 32))))
+
+
+(defmethod size ((p pkt))
+  (+ (hdr p)
+     (size (pld p))))
+
 
 (defclass rtp-struct (obj)
   ((tstamp   :initarg :tstamp   :accessor tstamp)
@@ -169,7 +201,7 @@
 
 ;; ULB-OUT-FBAG
 
-(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (rp rtp-packet)
+(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (rp rtp-pkt)
 		dst-bag dst-sim)
   "ULB-STOCA riceve rtp da sphone, lo mette in una struct e imposta il
    tstamp di arrivo"
@@ -196,10 +228,10 @@
 (defmethod out! ((us ulb-stoca-sim) (uob ulb-out-fbag)
 		 dst-bag dst-sim)
   "out-fbag -> best wlan"
-  ;; TODO scegliere best-wlan in modo piu' rigoroso.
   (handler-bind ((access-temporarily-unavailable #'abort)
 		 (access-denied #'abort)
 		 (no-destination #'abort))
+    ;; TODO scegliere best-wlan in modo piu' rigoroso.
     (let ((best-wlan (random-pick (dests uob))))
       (call-next-method us uob best-wlan (owner best-wlan)))))
 
@@ -228,7 +260,7 @@
 		    :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
 		    :tm (next-out-time us wob)
 		    :fn (lambda ()
-			  (out! us wob t t)))))
+			  (out! us wob t t))))))
 
 
 (defmethod give-up! ((wob ulb-wlan-out-bag))
@@ -296,7 +328,7 @@
 ;; METODI SPHONE-SIM
 
 ;; TODO conversazione: lista di eventi in! pregenerata che inietta gli
-;; rtp-packet nel softphone.
+;; rtp-pkt nel softphone.
 
 (defmethod out! ((ss sphone-sim) (ob out-fbag)
 		 dst-bag dst-sim)
@@ -306,6 +338,6 @@
     (call-next-method)))
 
 
-(defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-packet)
+(defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-pkt)
 		dst-bag dst-sim)
   (call-next-method))
