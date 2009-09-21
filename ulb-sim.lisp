@@ -39,14 +39,35 @@
   ((hdr   :initarg :hdr :accessor hdr)
    (pld   :initarg :pld :accessor pld)))
 
+(defmethod setup-new! ((p pkt))
+  (set-unbound-slots p
+    (hdr 0)
+    (pld 0))
+  (call-next-method))
+
+(defmethod clone ((p pkt))
+  (let ((copy (call-next-method)))
+    (setf (hdr copy) (hdr p))
+    (setf (pld copy) (if (typep (pld p) 'pkt)
+			 (clone (pld p))
+			 (pld p)))
+    copy))
+
+(defmethod size ((p pkt))
+  (+ (hdr p)
+     (size (pld p))))
 
 (defclass rtp-pkt (pkt)
   nil)
 
-
 (defmethod setup-new! ((rp rtp-pkt))
   (set-unbound-slots rp
-    (hdr (bytes 12))))
+    (hdr (bytes 12)))
+  (call-next-method))
+
+(defmethod size ((rp rtp-pkt))
+  (+ (hdr rp)
+     (pld rp)))
 
 
 (defclass udp-pkt (pkt)
@@ -54,25 +75,22 @@
 
 (defmethod setup-new! ((up udp-pkt))
   (set-unbound-slots up
-    (hdr (bytes 8))))
+    (hdr (bytes 8)))
+  (call-next-method))
 
 (defclass wifi-frame (pkt)
   nil)
+
+(defmethod setup-new! ((wf wifi-frame))
+  (set-unbound-slots wf
+    (hdr (bytes 32)))
+  (call-next-method))
 
 (defmethod size ((wf wifi-frame))
   (+ (hdr wf)
      (if (typep (pld wf) 'pkt)
 	 (size (pld wf))
 	 0)))   ; gli ack wifi hanno l'id che ackano come pld
-
-(defmethod setup-new! ((wf wifi-frame))
-  (set-unbound-slots wf
-    (hdr (bytes 32))))
-
-
-(defmethod size ((p pkt))
-  (+ (hdr p)
-     (size (pld p))))
 
 
 (defclass rtp-struct (obj)
