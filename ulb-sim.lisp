@@ -218,17 +218,17 @@
 
 (defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (rs rtp-struct)
 		dst-bag dst-sim)
-  ;; TODO errore se non e' inizializzata (mac-err-no a zero, niente
-  ;; eventi attivi, vuota, etc.)
+  "wlan riceve da out-bag: lock, crea la wifi frame e schedula invio."
+  (when (not (clean? wob))
+    (error "in! us wob rs t t: wob non e' clean"))
   (lock! wob)
-  (call-next-method)
-  ;; a questo punto wob e' lockata, ha una sola rtp-struct e la
-  ;; inoltra al link wifi (uso t t perche' il link e' dest di default)
-  (schedule! (new 'event :owner-id (id us)
-		  :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
-		  :tm (next-out-time us wob)
-		  :fn (lambda ()
-			(out! us wob t t)))))
+  (let ((wf (new 'wifi-frame :pkt (new 'udp-packet :pkt (pkt rs)))))
+    (call-next-method us wob wf)
+    (schedule! (new 'event :owner-id (id us)
+		    :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
+		    :tm (next-out-time us wob)
+		    :fn (lambda ()
+			  (out! us wob t t)))))
 
 
 (defmethod give-up! ((wob ulb-wlan-out-bag))
@@ -249,7 +249,6 @@
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
 		 (dst-bag bag) (dst-sim ln<->))
   "wlan -> wifi-link"
-  ;; TODO incapsulare pkt di rtp-struct in udp-packet e wifi-frame
   ;; schedula l'in! per la destinazione
   ;; schedula il retry event
   ;; schedula l'out! per la bag sent, solo se siamo al primo invio
