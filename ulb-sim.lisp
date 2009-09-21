@@ -218,8 +218,8 @@
 
 (defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (rs rtp-struct)
 		dst-bag dst-sim)
-  (when (not (empty? wob))
-    (error "in! wlan non e' vuota!"))
+  ;; TODO errore se non e' inizializzata (mac-err-no a zero, niente
+  ;; eventi attivi, vuota, etc.)
   (lock! wob)
   (call-next-method)
   ;; a questo punto wob e' lockata, ha una sola rtp-struct e la
@@ -261,6 +261,7 @@
 		 (access-denied #'abort)
 		 (no-destination #'abort))
     (call-next-method))
+  ;; TODO se non waiting!
   (let ((retry-ev (new 'event :tm (+ (gettime!) (retry-tmout wob))
 		       :desc (format nil "retry timeout expired ~a" wob)
 		       :owner-id (id wob)
