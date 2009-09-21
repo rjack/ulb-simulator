@@ -81,11 +81,14 @@
 
 
 (defclass ulb-wlan-out-bag (fbag)
-  ((fw-capab    :initarg :fw-capa     :accessor fw-capa     :documentation "Capacita' di notifica del firmware: ack, nack o entrambi")
-   (err-no      :initarg :err-no      :accessor err-no      :documentation "Numero di errori di invio")
-   (max-err-no  :initarg :max-err-no  :accessor max-err-no  :documentation "Massimo numero di errori d'invio")
-   (retry-tmout :initarg :retry-tmout :accessor retry-tmout :documentation "Tempo di attesa prima di riprovare a inviare il frame")
-   (retry-event :initarg :retry-event :accessor retry-event :documentation "Riferimento all'evento schedulato per re-invio frame")))
+  ((fw              :initarg :fw              :accessor fw              :documentation "Capacita' reali di notifica del firmware: lista contenente :ack, :nack o entrambi")
+   (fw-guess        :initarg :fw-guess        :accessor fw-guess        :documentation "Capacita' indovinate. Il gioco e' renderla uguale a fw, osservando il comportamento dell'interfaccia.")
+   (mac-err-no      :initarg :mac-err-no      :accessor mac-err-no      :documentation "Numero attuale di errori di invio a livello MAC")
+   (max-mac-err-no  :initarg :mac-max-err-no  :accessor max-mac-err-no  :documentation "Massimo numero di errori d'invio a livello MAC")
+   (mac-retry-tmout :initarg :retry-tmout     :accessor retry-tmout     :documentation "Tempo di attesa prima di riprovare a inviare il frame")
+   (mac-retry-event :initarg :retry-event     :accessor retry-event     :documentation "Riferimento all'evento schedulato per re-invio frame")
+   (auto-nack-tmout :initarg :auto-nack-tmout :accessor auto-nack-tmout :documentation "Tempo di attesa entro cui se non viene notificato nulla si assume NACK")
+   (auto-nack-event :initarg :auto-nack-event :accessor auto-nack-event :documentation "Riferimento all'evento per la notifica NACK automatica")))
 
 
 (defmethod setup-new! ((wob ulb-wlan-out-bag))
@@ -228,22 +231,24 @@
 
 
 (defmethod handle-send-err! ((wob ulb-wlan-out-bag))
-  (incf (err-no wob))
-  (if (< (err-no wob)
-	 (max-err-no wob))
-      (out! (owner wob) wob t t)    ; riprova
-      (give-up! wob)))
+;  (incf (err-no wob))
+;  (if (< (err-no wob)
+;	 (max-err-no wob))
+;      (out! (owner wob) wob t t)    ; riprova
+;      (give-up! wob)
+  (error 'not-implemented))
 
 
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
 		 (dst-bag bag) (dst-sim ln<->))
   "wlan -> wifi-link"
+  ;; TODO incapsulare pkt di rtp-struct in udp-packet e wifi-frame
   ;; schedula l'in! per la destinazione
   ;; schedula il retry event
   ;; schedula l'out! per la bag sent, solo se siamo al primo invio
   ;; TODO LOG
-  (assert (< (err-no wob)
-	     (max-err-no wob))
+  (assert (< (mac-err-no wob)
+	     (max-mac-err-no wob))
 	  nil "out! wob: oltrepassato numero massimo di invii!")
   (handler-bind ((access-temporarily-unavailable #'wait)
 		 (access-denied #'abort)
@@ -259,7 +264,7 @@
 	    nil "out! wob: l'evento precedente e' ancora attivo!")
     (setf (retry-event wob) retry-ev)
     (schedule! retry-ev)
-    (when (zerop (err-no wob))   ; solo al primo tentativo
+    (when (zerop (mac-err-no wob))   ; solo al primo tentativo
       (schedule! (new 'event :tm (gettime!)
 		      :desc "Invio pkt tra quelli spediti"
 		      :owner-if (id wob)
