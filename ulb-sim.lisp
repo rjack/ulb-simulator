@@ -312,7 +312,7 @@
   "wlan -> wifi-link"
   ;; schedula l'in! per la destinazione
   ;; schedula il retry event
-  ;; schedula l'out! per la bag sent, solo se siamo al primo invio
+  ;; solo al primo invio, schedula il pacchetto per la sent-bag e, se non c'e' :nack nel fw-guess, schedula l'auto-nack-event.
   ;; TODO LOG
   (assert (< (mac-err-no wob)
 	     (max-mac-err-no wob))
@@ -321,23 +321,31 @@
 		 (access-denied #'abort)
 		 (no-destination #'abort))
     (call-next-method))
-  ;; TODO se non waiting!
-  (let ((retry-ev (new 'event :tm (+ (gettime!) (retry-tmout wob))
-		       :desc (format nil "retry timeout expired ~a" wob)
-		       :owner-id (id wob)
-		       :fn (lambda ()
-			     (handle-send-err! wob)))))
-    (assert (or (null (retry-event wob))
-		(dead? (retry-event wob)))
-	    nil "out! wob: l'evento precedente e' ancora attivo!")
-    (setf (retry-event wob) retry-ev)
-    (schedule! retry-ev)
-    (when (zerop (mac-err-no wob))   ; solo al primo tentativo
-      (schedule! (new 'event :tm (gettime!)
-		      :desc "Invio pkt tra quelli spediti"
-		      :owner-if (id wob)
-		      :fn (lambda ()
-			    (out! us wob (sent us) us)))))))
+  (when (not (waiting? wob))
+    (let ((retry-ev (new 'event :tm (+ (gettime!) (retry-tmout wob))
+			 :desc (format nil "retry timeout expired ~a" wob)
+			 :owner-id (id wob)
+			 :fn (lambda ()
+			       (handle-send-err! wob)))))
+      (assert (or (null (retry-event wob))
+		  (dead? (retry-event wob)))
+	      nil "out! wob: l'evento precedente e' ancora attivo!")
+      (setf (retry-event wob) retry-ev)
+      (schedule! retry-ev)
+      ;; Solo al primo tentativo, mando il pkt a sent e se fw-guess
+      ;; dice :nack nisba, schedulo l'auto-nack
+      (when (zerop (mac-err-no wob))
+	(schedule! (new 'event :tm (gettime!)
+			:desc "Invio pkt tra quelli spediti"
+			:owner-if (id wob)
+			:fn (lambda ()
+			      (out! us wob (sent us) us))))
+	(when (null (find :nack (fw-guess wob)))
+	  (schedule! (new 'event :tm (+ (gettime!) (auto-nack-tmout wob))
+			  :desc "Timeout auto-nack"
+			  :owner-id (id wob)
+			  :fn (lambda ()
+				(error 'not-implemented)))))))))
 
 
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
