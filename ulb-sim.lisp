@@ -65,9 +65,9 @@
 
 
 (defmethod setup-new! ((ss sphone-sim))
-  (with-slots (out in) ss
-    (setf out (new 'out-fbag :owner ss))
-    (setf in (new 'in-bag :owner ss)))
+  (set-unbound-slots ss
+    (out (new 'out-fbag :owner ss))
+    (in (new 'in-bag :owner ss)))
   (call-next-method))
 
 
@@ -92,11 +92,17 @@
 
 
 (defmethod setup-new! ((wob ulb-wlan-out-bag))
-  (with-slots (err-no max-err-no retry-tmout retry-event) wob
-    (setf err-no 0)
-    (setf max-err-no 7)            ; valore preso dal paper di ghini
-    (setf retry-tmout (usecs 3))   ; http://www.air-stream.org.au/ACK_Timeouts dice 2, ma il retry-event viene schedulato prima
-    (setf retry-event nil))
+  (set-unbound-slots wob
+    (fw (random-pick (list (list :ack)
+			   (list :nack)
+			   (list :ack :nack))))
+    (fw-guess (list))
+    (mac-err-no 0)
+    (max-mac-err-no 7)             ; valore preso dal paper di ghini
+    (mac-retry-tmout (usecs 3))    ; http://www.air-stream.org.au/ACK_Timeouts dice 2, ma il retry-event verrebbe schedulato prima
+    (mac-retry-event nil)
+    (auto-nack-tmout (usecs 20))
+    (auto-nack-event nil))
   (call-next-method))
 
 
@@ -128,15 +134,16 @@
 ;; METODI ULB-SIM
 
 (defmethod setup-new! ((us ulb-sim))
-  (with-slots (sendmsg-id out in w0-out w0-in w1-out w1-in sent) us
-    (setf sendmsg-id -1)
-    (setf out    (new 'ulb-out-fbag     :owner us))
-    (setf in     (new 'in-fbag          :owner us))
-    (setf sent   (new 'ulb-sent-bag     :owner us))
-    (setf w0-out (new 'ulb-wlan-out-bag :owner us))
-    (setf w0-in  (new 'ulb-wlan-in-fbag :owner us))
-    (setf w1-out (new 'ulb-wlan-out-bag :owner us))
-    (setf w1-in  (new 'ulb-wlan-in-fbag :owner us))
+  (set-unbound-slots us
+    (sendmsg-id -1)
+    (out    (new 'ulb-out-fbag     :owner us))
+    (in     (new 'in-fbag          :owner us))
+    (sent   (new 'ulb-sent-bag     :owner us))
+    (w0-out (new 'ulb-wlan-out-bag :owner us))
+    (w0-in  (new 'ulb-wlan-in-fbag :owner us))
+    (w1-out (new 'ulb-wlan-out-bag :owner us))
+    (w1-in  (new 'ulb-wlan-in-fbag :owner us)))
+  (with-slots (out in w0-out w0-in w1-out w1-in sent) us
     (connect! out w0-out)
     (connect! w0-out sent)
     (connect! w0-in in)
