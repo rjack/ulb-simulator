@@ -31,6 +31,9 @@
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
 
+(defgeneric clean? (wob))
+(defgeneric clean! (wob))
+
 
 (defclass pkt (obj)
   ((hdr   :initarg :hdr :accessor hdr)
@@ -237,6 +240,14 @@
 
 
 ;; WLAN-OUT-BAG
+
+
+(defmethod clean? ((wob ulb-wlan-out-bag))
+  (error 'not-implemented))
+
+(defmethod clean! ((wob ulb-wlan-out-bag))
+  (error 'not-implemented))
+
 
 (defmethod default-dest ((us ulb-stoca-sim) (wob ulb-wlan-out-bag))
   "Destinazione di default per le wlan e' il link"
