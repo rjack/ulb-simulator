@@ -62,7 +62,7 @@
 		    :owner-id (id *a-sp*)
 		    :fn (lambda ()
 			  (in! *a-sp* (out *a-sp*)
-			       (new 'rtp-packet)
+			       (new 'rtp-pkt)
 			       t t))))))
 
 
