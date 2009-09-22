@@ -124,6 +124,19 @@
    (pkt        :initarg :pkt        :accessor pkt :type pkt)))
 
 
+(defmethod setup-new! ((ps pkt-struct))
+  (set-unbound-slots ps
+    (pkt (error "pkt-struct: pkt necessario!")))
+  (call-next-method))
+
+
+(defmethod clone ((ps pkt-struct))
+  (let ((copy (call-next-method)))
+    (setf (pkt copy)
+	  (clone (pkt ps)))
+    copy))
+
+
 ;; Bag generiche
 
 (defclass out-bag (bag)
@@ -331,26 +344,17 @@
 
 (defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (ps pkt-struct)
 		dst-bag dst-sim)
-  "wlan riceve da out-bag: lock, crea la wifi frame e schedula invio."
-  (lock! wob)
-  (call-next-method)
-  (schedule! (new 'event :owner-id (id us)
-		  :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
-		  :tm (next-out-time us wob)
-		  :fn (lambda ()
-			(out! us wob t t)))))
-
-
-(defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
   (when (not (clean? wob))
     (error "insert! wob ps: wob non e' clean"))
-  ;; impostazione pkt-struct
+  ;; un pacchetto alla volta: lock!
+  (lock! wob)
+  ;; salva sendmsg-id in pkt-struct
   (setf (sendmsg-id ps)
 	(sendmsg-getid! (owner wob)))
-  ;; impostazione wob
+  ;; `mac-retry-event' e `auto-nack-event'
   (with-slots (fw fw-guess pkt-struct mac-seqnum mac-retry-tmout
 		  mac-retry-event auto-nack-tmout auto-nack-event) wob
-    ;; mac-retry-event, riprova quando non arriva MAC-ACK.
+    ;; `mac-retry-event', riprova quando non arriva MAC-ACK.
     (setf mac-retry-event (new 'event :tm (+ (gettime!)
 					     mac-retry-tmout)
 			       :desc (format nil "mac-retry! ~a" wob)
@@ -358,7 +362,7 @@
 			       :fn (lambda ()
 				     (mac-retry! wob))))
     (schedule! mac-retry-event)
-    ;; se fw-guess non contiene :nack, schedulo l'auto-nack-event.
+    ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack-event'
     (when (not (find :nack fw-guess))
       (setf auto-nack-event (new 'event :tm (+ (gettime!)
 					       auto-nack-tmout)
@@ -368,12 +372,34 @@
 				       (auto-nack! wob))))
       (schedule! auto-nack-event))
     ;; salvataggio a parte della pkt-struct
-    (setf pkt-struct ps)
-    ;; incapsulamento pkt-struct in wifi-frame, impostazione e
-    ;; incremento mac-seqnum.
-    (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
-		   :seq (incf mac-seqnum))))
-      (call-next-method wob wf))))
+    (setf pkt-struct ps))
+  ;; inserimento (insert! fa incapsulamento in wifi frame)
+  (call-next-method)
+  ;; Invio copia pkt-struct a `sent' bag.
+  (let ((struct-copy (clone ps)))
+    ;; Baro impunemente: invece di chiamare `out!' chiamo direttamente
+    ;; `in!' sulla bag `sent' cosi' evito i maroni con `out' e
+    ;; `remove!'
+    (schedule! (new 'event :owner-id (id us)
+		    :desc (format nil "in! ~a ~a ~a t t" us (sent us) struct-copy)
+		    :tm (gettime!)
+		    :fn (lambda ()
+			  (in! us (sent us) struct-copy t t)))))
+  ;; schedula invio del pacchetto al link.
+  (schedule! (new 'event :owner-id (id us)
+		  :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
+		  :tm (gettime!)
+		  :fn (lambda ()
+			(out! us wob t t)))))
+
+
+
+(defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
+  ;; incapsulamento pkt-struct in wifi-frame, impostazione e
+  ;; incremento mac-seqnum.
+  (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
+		 :seq (incf mac-seqnum))))
+    (call-next-method wob wf)))
 
 
 (defmethod give-up! ((wob ulb-wlan-out-bag))
