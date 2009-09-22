@@ -33,6 +33,7 @@
 
 (defgeneric clean? (wob))
 (defgeneric clean! (wob))
+(defgeneric sendmsg-getid (us))
 
 
 (defclass pkt-log-entry (obj)
