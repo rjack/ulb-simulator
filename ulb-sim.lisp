@@ -35,9 +35,34 @@
 (defgeneric clean! (wob))
 
 
+(defclass pkt-log-entry (obj)
+  ((tstamp        :initarg :tstamp         :accessor tstamp)
+   (sendmsg-id    :initarg :sendmsg-id     :accessor sendmsg-id)
+   (notification  :initarg :notification   :accessor notification)))
+
+(defmethod setup-new! ((ple pkt-log-entry))
+  (set-unbound-slots ple
+    (tstamp       (error "pkt-log-entry: tstamp necessario!"))
+    (sendmsg-id   (error "pkt-log-entry: sendmsg-id necessario!"))
+    (notification (error "pkt-log-entry: notification necessaria!")))
+  (call-next-method))
+
+
+(defclass ping-log-entry (pkt-log-entry)
+  ((reply-tstamp  :initarg :reply-tstamp   :accessor reply-tstamp)
+   (ping-seqnum   :initarg :ping-seqnum    :accessor ping-seqnum)))
+
+(defmethod setup-new! ((ple ping-log-entry))
+  (set-unbound-slots ple
+    (reply-tstamp (error "ping-log-entry: reply-tstamp necessario!"))
+    (ping-seqnum  (error "ping-log-entry: notification necessaria!")))
+  (call-next-method))
+
+
 (defclass pkt (obj)
-  ((hdr   :initarg :hdr :accessor hdr)
-   (pld   :initarg :pld :accessor pld)))
+  ((hdr           :initarg :hdr            :accessor hdr)
+   (pld           :initarg :pld            :accessor pld)))
+
 
 (defmethod setup-new! ((p pkt))
   (set-unbound-slots p
@@ -153,7 +178,8 @@
    ;; interfacce che non sono state scelte come migliori.
    (ping-seqnum     :initarg :ping-seqnum     :accessor ping-seqnum     :documentation "Numero di sequenza del ping")
    (ping-send-tmout :initarg :ping-send-tmout :accessor ping-send-tmout :documentation "Tempo di intervallo tra l'invio di un ping e l'altro")
-   (ping-send-event :initarg :ping-send-event :accessor ping-send-event :documentation "Evento di invio del ping")))
+   (ping-send-event :initarg :ping-send-event :accessor ping-send-event :documentation "Evento di invio del ping")
+   (pkt-log         :initarg :pkt-log         :accessor pkt-log         :documentation "Log dell'interfaccia, lista di pkt-log-entry.")))
 
 
 (defmethod setup-new! ((wob ulb-wlan-out-bag))
@@ -177,7 +203,16 @@
 
 
 (defclass ulb-wlan-in-fbag (fbag)
-  nil)
+  ;; Riferimento alla wlan-out appaiata.
+  ;; Serve perche' quando wlan-in riceve un ack, deve far smettere di inviare a wlan-out.
+  ;; Inoltre deve accedere al log di wlan-out quando riceve ping e notifiche.
+  ((sibling-wlan :initarg :sibling-wlan :accessor sibling-wlan :type ulb-wlan-out-bag)))
+
+(defmethod setup-new! ((wib ulb-wlan-in-fbag))
+  (set-unbound-slots wib
+    (sibling-wlan (error "ulb-wlan-in-fbag: sibling-wlan necessaria!")))
+  (call-next-method))
+
 
 
 (defclass ulb-sim (sim)
@@ -210,9 +245,9 @@
     (in     (new 'in-fbag          :owner us))
     (sent   (new 'ulb-sent-bag     :owner us))
     (w0-out (new 'ulb-wlan-out-bag :owner us))
-    (w0-in  (new 'ulb-wlan-in-fbag :owner us))
+    (w0-in  (new 'ulb-wlan-in-fbag :owner us :sibling-wlan (w0-out us)))
     (w1-out (new 'ulb-wlan-out-bag :owner us))
-    (w1-in  (new 'ulb-wlan-in-fbag :owner us)))
+    (w1-in  (new 'ulb-wlan-in-fbag :owner us :sibling-wlan (w1-out us))))
   (with-slots (out in w0-out w0-in w1-out w1-in sent) us
     (connect! out w0-out)
     (connect! w0-out sent)
