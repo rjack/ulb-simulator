@@ -169,9 +169,6 @@
 (defclass ulb-out-fbag (fbag)
   nil)
 
-(defclass ulb-sent-bag (bag)
-  nil)
-
 
 (defclass ulb-wlan-out-bag (fbag)
   ((fw              :initarg :fw              :accessor fw              :documentation "Capacita' reali di notifica del firmware: lista contenente :ack, :nack o entrambi")
@@ -233,7 +230,7 @@
   ((sendmsg-id :initarg :sendmsg-id :accessor sendmsg-id)
    (out        :initarg :out        :accessor out    :type ulb-out-fbag)
    (in         :initarg :in         :accessor in     :type in-fbag)
-   (sent       :initarg :sent       :accessor sent   :type ulb-sent-bag)
+   (sent       :initarg :sent       :accessor sent   :type hash-table)
    (w0-out     :initarg :w0-out     :accessor w0-out :type ulb-wlan-out-bag)
    (w0-in      :initarg :w0-in      :accessor w0-in  :type ulb-wlan-in-fbag)
    (w1-out     :initarg :w1-out     :accessor w1-out :type ulb-wlan-out-bag)
@@ -257,19 +254,16 @@
     (sendmsg-id -1)
     (out    (new 'ulb-out-fbag     :owner us))
     (in     (new 'in-fbag          :owner us))
-    (sent   (new 'ulb-sent-bag     :owner us))
+    (sent   (make-hash-table))
     (w0-out (new 'ulb-wlan-out-bag :owner us))
     (w0-in  (new 'ulb-wlan-in-fbag :owner us :sibling-wlan (w0-out us)))
     (w1-out (new 'ulb-wlan-out-bag :owner us))
     (w1-in  (new 'ulb-wlan-in-fbag :owner us :sibling-wlan (w1-out us))))
-  (with-slots (out in w0-out w0-in w1-out w1-in sent) us
+  (with-slots (out in w0-out w0-in w1-out w1-in) us
     (connect! out w0-out)
-    (connect! w0-out sent)
     (connect! w0-in in)
     (connect! out w1-out)
-    (connect! w1-out sent)
-    (connect! w1-in in)
-    (connect! sent out))
+    (connect! w1-in in))
   (call-next-method))
 
 
@@ -333,16 +327,6 @@
   (error 'not-implemented))
 
 
-(defmethod default-dest ((us ulb-stoca-sim) (wob ulb-wlan-out-bag))
-  "Destinazione di default per le wlan e' il link"
-  (let ((ln-bag (find-if (lambda (d)
-			   (not (typep d 'ulb-sent-bag)))
-			 (dests wob))))
-    (if (null ln-bag)
-	(error 'no-destination)
-	ln-bag)))
-
-
 (defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (ps pkt-struct)
 		dst-bag dst-sim)
   (when (not (clean? wob))
@@ -376,16 +360,10 @@
     (setf pkt-struct ps))
   ;; inserimento (insert! fa incapsulamento in wifi frame)
   (call-next-method)
-  ;; Invio copia pkt-struct a `sent' bag.
-  (let ((struct-copy (clone ps)))
-    ;; Baro impunemente: invece di chiamare `out!' chiamo direttamente
-    ;; `in!' sulla bag `sent' cosi' evito i maroni con `out' e
-    ;; `remove!'
-    (schedule! (new 'event :owner-id (id us)
-		    :desc (format nil "in! ~a ~a ~a t t" us (sent us) struct-copy)
-		    :tm (gettime!)
-		    :fn (lambda ()
-			  (in! us (sent us) struct-copy t t)))))
+  ;; Salvo copia pkt-struct in `sent' hash-table
+  (let ((ps-copy (clone ps)))
+    (setf (gethash (sendmsg-id ps-copy) (sent us))
+	  ps-copy))
   ;; schedula invio del pacchetto al link.
   (schedule! (new 'event :owner-id (id us)
 		  :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
