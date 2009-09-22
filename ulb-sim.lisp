@@ -257,7 +257,7 @@
       (call-next-method us uob best-wlan (owner best-wlan)))))
 
 
-;; WLAN-OUT-BAG
+;; ULB-WLAN-OUT-BAG
 
 
 (defmethod clean? ((wob ulb-wlan-out-bag))
