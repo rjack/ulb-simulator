@@ -377,7 +377,7 @@
   ;; incapsulamento pkt-struct in wifi-frame, impostazione e
   ;; incremento mac-seqnum.
   (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
-		 :seq (incf mac-seqnum))))
+		 :seq (incf (mac-seqnum wob)))))
     (call-next-method wob wf)))
 
 
