@@ -94,8 +94,9 @@
 
 
 (defclass pkt-struct (obj)
-  ((tstamp   :initarg :tstamp   :accessor tstamp)
-   (pkt      :initarg :pkt      :accessor pkt :type pkt)))
+  ((tstamp     :initarg :tstamp     :accessor tstamp)
+   (sendmsg-id :initarg :sendmsg-id :accessor sendmsg-id)
+   (pkt        :initarg :pkt        :accessor pkt :type pkt)))
 
 
 ;; Bag generiche
@@ -135,13 +136,24 @@
 
 (defclass ulb-wlan-out-bag (fbag)
   ((fw              :initarg :fw              :accessor fw              :documentation "Capacita' reali di notifica del firmware: lista contenente :ack, :nack o entrambi")
+   ;; wib riceve mac-ack: aggiungo :ack
+   ;; wib riceve mac-nack: aggiungo :nack
+   ;; wib riceve un ping: se l'invio del ping corrispondente non e' stato mac-ackato, aggiungo :nack
    (fw-guess        :initarg :fw-guess        :accessor fw-guess        :documentation "Capacita' indovinate. Il gioco e' renderla uguale a fw, osservando il comportamento dell'interfaccia.")
+   (pkt-struct      :initarg :pkt-struct      :accessor pkt-struct      :documentation "pkt-struct del pacchetto correntemente in invio.")
+   (mac-seqnum      :initarg :mac-seqnum      :accessor mac-seqnum      :documentation "Numero di sequenza MAC per individuare wifi-frame duplicate")
    (mac-err-no      :initarg :mac-err-no      :accessor mac-err-no      :documentation "Numero attuale di errori di invio a livello MAC")
    (max-mac-err-no  :initarg :mac-max-err-no  :accessor max-mac-err-no  :documentation "Massimo numero di errori d'invio a livello MAC")
    (mac-retry-tmout :initarg :retry-tmout     :accessor retry-tmout     :documentation "Tempo di attesa prima di riprovare a inviare il frame")
    (mac-retry-event :initarg :retry-event     :accessor retry-event     :documentation "Riferimento all'evento schedulato per re-invio frame")
    (auto-nack-tmout :initarg :auto-nack-tmout :accessor auto-nack-tmout :documentation "Tempo di attesa entro cui se non viene notificato nulla si assume NACK")
-   (auto-nack-event :initarg :auto-nack-event :accessor auto-nack-event :documentation "Riferimento all'evento per la notifica NACK automatica")))
+   (auto-nack-event :initarg :auto-nack-event :accessor auto-nack-event :documentation "Riferimento all'evento per la notifica NACK automatica")
+   ;; TODO ragionare su come e quando schedulare l'invio dei PING
+   ;; Potrebbe essere `best-wlan' che schedula l'invio dei ping alle
+   ;; interfacce che non sono state scelte come migliori.
+   (ping-seqnum     :initarg :ping-seqnum     :accessor ping-seqnum     :documentation "Numero di sequenza del ping")
+   (ping-send-tmout :initarg :ping-send-tmout :accessor ping-send-tmout :documentation "Tempo di intervallo tra l'invio di un ping e l'altro")
+   (ping-send-event :initarg :ping-send-event :accessor ping-send-event :documentation "Evento di invio del ping")))
 
 
 (defmethod setup-new! ((wob ulb-wlan-out-bag))
@@ -150,12 +162,17 @@
 			   (list :nack)
 			   (list :ack :nack))))
     (fw-guess (list))
+    (pkt-struct nil)
+    (mac-seqnum -1)
     (mac-err-no 0)
     (max-mac-err-no 7)             ; valore preso dal paper di ghini
     (mac-retry-tmout (usecs 3))    ; http://www.air-stream.org.au/ACK_Timeouts dice 2, ma il retry-event verrebbe schedulato prima
     (mac-retry-event nil)
     (auto-nack-tmout (usecs 20))
-    (auto-nack-event nil))
+    (auto-nack-event nil)
+    (ping-send-tmout nil)
+    (ping-send-event nil))
+  ;; TODO chiamare `clean!'
   (call-next-method))
 
 
@@ -207,7 +224,7 @@
   (call-next-method))
 
 
-(defmethod sendmsg-getid ((us ulb-sim))
+(defmethod sendmsg-getid! ((us ulb-sim))
   (incf (sendmsg-id us)))
 
 
@@ -280,16 +297,48 @@
 (defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (ps pkt-struct)
 		dst-bag dst-sim)
   "wlan riceve da out-bag: lock, crea la wifi frame e schedula invio."
-  (when (not (clean? wob))
-    (error "in! us wob ps t t: wob non e' clean"))
   (lock! wob)
-  (let ((wf (new 'wifi-frame :pkt (new 'udp-packet :pkt (pkt ps)))))
-    (call-next-method us wob wf)
-    (schedule! (new 'event :owner-id (id us)
-		    :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
-		    :tm (next-out-time us wob)
-		    :fn (lambda ()
-			  (out! us wob t t))))))
+  (call-next-method)
+  (schedule! (new 'event :owner-id (id us)
+		  :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
+		  :tm (next-out-time us wob)
+		  :fn (lambda ()
+			(out! us wob t t)))))
+
+
+(defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
+  (when (not (clean? wob))
+    (error "insert! wob ps: wob non e' clean"))
+  ;; impostazione pkt-struct
+  (setf (sendmsg-id ps)
+	(sendmsg-getid! (owner wob)))
+  ;; impostazione wob
+  (with-slots (fw fw-guess pkt-struct mac-seqnum mac-retry-tmout
+		  mac-retry-event auto-nack-tmout auto-nack-event) wob
+    ;; mac-retry-event, riprova quando non arriva MAC-ACK.
+    (setf mac-retry-event (new 'event :tm (+ (gettime!)
+					     mac-retry-tmout)
+			       :desc (format nil "mac-retry! ~a" wob)
+			       :owner-id (id wob)
+			       :fn (lambda ()
+				     (mac-retry! wob))))
+    (schedule! mac-retry-event)
+    ;; se fw-guess non contiene :nack, schedulo l'auto-nack-event.
+    (when (not (find :nack fw-guess))
+      (setf auto-nack-event (new 'event :tm (+ (gettime!)
+					       auto-nack-tmout)
+				 :desc (format nil "auto-nack! ~a" wob)
+				 :owner-id (id wob)
+				 :fn (lambda ()
+				       (auto-nack! wob))))
+      (schedule! auto-nack-event))
+    ;; salvataggio a parte della pkt-struct
+    (setf pkt-struct ps)
+    ;; incapsulamento pkt-struct in wifi-frame, impostazione e
+    ;; incremento mac-seqnum.
+    (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
+		   :seq (incf mac-seqnum))))
+      (call-next-method wob wf))))
 
 
 (defmethod give-up! ((wob ulb-wlan-out-bag))
