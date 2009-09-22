@@ -38,6 +38,10 @@
 (defparameter *wifi1* nil)
 (defparameter *ap0*   nil)
 (defparameter *ap1*   nil)
+(defparameter *wire1* nil)
+(defparameter *wire2* nil)
+(defparameter *proxy* nil)
+(defparameter *b-sp*  nil)
 
 
 ;(trace in! out! fire! remove! insert! peek dead? flush? schedule! wait access? wakeup!)
@@ -66,10 +70,10 @@
   (connect! (in *ulb*)     (b2a *lo*))
 
   (connect! (w0-out *ulb*) (a2b *wifi0*))
-  (connect! (b2a *wifi0*)  (w0-in ulb))
+  (connect! (b2a *wifi0*)  (w0-in *ulb*))
 
   (connect! (w1-out *ulb*) (a2b *wifi1*))
-  (connect! (b2a *wifi1*)  (w1-in ulb))
+  (connect! (b2a *wifi1*)  (w1-in *ulb*))
 
   (connect! (a2b *wifi0*)  (fromwifi *ap0*))
   (connect! (towifi *ap0*) (b2a *wifi0*))
@@ -88,7 +92,4 @@
 
 
 (defun run! ()
-  (handler-case (loop :do (fire!))
-    (no-events ()
-      (format t "arrivati: ~a~%"
-	      (length (elements (in *b-sp*)))))))
+  (handler-case (loop :do (fire!))))
