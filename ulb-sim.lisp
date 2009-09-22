@@ -33,7 +33,11 @@
 
 (defgeneric clean? (wob))
 (defgeneric clean! (wob))
-(defgeneric sendmsg-getid (us))
+(defgeneric mac-retry! (wob))
+(defgeneric give-up! (wob))
+(defgeneric auto-nack! (wob))
+(defgeneric sendmsg-getid! (us))
+(defgeneric notify-nack! (us wob id))
 
 
 (defclass pkt-log-entry (obj)
@@ -60,48 +64,53 @@
   (call-next-method))
 
 
-(defclass pkt (obj)
-  ((hdr           :initarg :hdr            :accessor hdr)
-   (pld           :initarg :pld            :accessor pld)))
+;; PACCHETTI
 
+(defclass pkt (obj)
+  ((hdr-size      :initarg :hdr-size       :accessor hdr-size)
+   (pld           :initarg :pld            :accessor pld  :type pkt)))
 
 (defmethod setup-new! ((p pkt))
   (set-unbound-slots p
-    (hdr 0)
-    (pld 0))
+    (hdr-size 0))
   (call-next-method))
 
 (defmethod clone ((p pkt))
   (let ((copy (call-next-method)))
-    (setf (hdr copy) (hdr p))
-    (setf (pld copy) (if (typep (pld p) 'pkt)
-			 (clone (pld p))
-			 (pld p)))
+    (setf (pld copy)
+	  (clone (pld p)))
     copy))
 
 (defmethod size ((p pkt))
-  (+ (hdr p)
+  (+ (hdr-size p)
      (size (pld p))))
+
+
+(defclass data-pkt (pkt)
+  ;; pld e' una stringa, la sua lunghezza e' la dimensione del pld
+  nil)
+
+(defmethod clone ((str string))
+  (copy-seq str))
+
+(defmethod size ((str string))
+  (length str))
+
 
 (defclass rtp-pkt (pkt)
   nil)
 
 (defmethod setup-new! ((rp rtp-pkt))
   (set-unbound-slots rp
-    (hdr (bytes 12)))
+    (hdr-size (bytes 12)))
   (call-next-method))
-
-(defmethod size ((rp rtp-pkt))
-  (+ (hdr rp)
-     (pld rp)))
-
 
 (defclass udp-pkt (pkt)
   nil)
 
 (defmethod setup-new! ((up udp-pkt))
   (set-unbound-slots up
-    (hdr (bytes 8)))
+    (hdr-size (bytes 8)))
   (call-next-method))
 
 (defclass wifi-frame (pkt)
@@ -109,14 +118,9 @@
 
 (defmethod setup-new! ((wf wifi-frame))
   (set-unbound-slots wf
-    (hdr (bytes 32)))
+    (hdr-size (bytes 32)))
   (call-next-method))
 
-(defmethod size ((wf wifi-frame))
-  (+ (hdr wf)
-     (if (typep (pld wf) 'pkt)
-	 (size (pld wf))
-	 0)))   ; gli ack wifi hanno l'id che ackano come pld
 
 
 (defclass pkt-struct (obj)
@@ -321,10 +325,42 @@
 
 
 (defmethod clean? ((wob ulb-wlan-out-bag))
-  (error 'not-implemented))
+  (with-slots (elements pkt-struct mac-err-no mac-retry-event
+			auto-nack-event) wob
+    (and (null elements)
+	 (null pkt-struct)
+	 (zerop mac-err-no)
+	 (or (null mac-retry-event)
+	     (dead? mac-retry-event))
+	 (or (null auto-nack-event)
+	     (dead? auto-nack-event)))))
+
 
 (defmethod clean! ((wob ulb-wlan-out-bag))
-  (error 'not-implemented))
+  (with-slots (elements pkt-struct mac-err-no mac-retry-event
+			auto-nack-event) wob
+    (setf elements nil)
+    (setf pkt-struct nil)
+    (setf mac-err-no 0)
+    (when (not (null mac-retry-event))
+      (setf (dead? mac-retry-event) t))
+    (when (not (null auto-nack-event))
+      (setf (dead? auto-nack-event) t))))
+
+
+(defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
+  ;; incapsulamento pkt-struct in wifi-frame, impostazione e
+  ;; incremento mac-seqnum.
+  (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
+		 :seq (incf (mac-seqnum wob)))))
+    (call-next-method wob wf)))
+
+
+(defmethod remove! ((wob ulb-wlan-out-bag) &key)
+  (let ((qty (length (elements wob))))
+    (if (not (= 1 qty))
+	(error "remove! ulb-wlan-out-bag: ~a elementi invece che solo 1!" qty)
+	(clone (first (elements wob))))))
 
 
 (defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (ps pkt-struct)
@@ -337,16 +373,8 @@
   (setf (sendmsg-id ps)
 	(sendmsg-getid! (owner wob)))
   ;; `mac-retry-event' e `auto-nack-event'
-  (with-slots (fw fw-guess pkt-struct mac-seqnum mac-retry-tmout
-		  mac-retry-event auto-nack-tmout auto-nack-event) wob
-    ;; `mac-retry-event', riprova quando non arriva MAC-ACK.
-    (setf mac-retry-event (new 'event :tm (+ (gettime!)
-					     mac-retry-tmout)
-			       :desc (format nil "mac-retry! ~a" wob)
-			       :owner-id (id wob)
-			       :fn (lambda ()
-				     (mac-retry! wob))))
-    (schedule! mac-retry-event)
+  (with-slots (fw fw-guess pkt-struct mac-seqnum auto-nack-tmout
+		  auto-nack-event) wob
     ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack-event'
     (when (not (find :nack fw-guess))
       (setf auto-nack-event (new 'event :tm (+ (gettime!)
@@ -372,49 +400,53 @@
 			(out! us wob t t)))))
 
 
-
-(defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
-  ;; incapsulamento pkt-struct in wifi-frame, impostazione e
-  ;; incremento mac-seqnum.
-  (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
-		 :seq (incf (mac-seqnum wob)))))
-    (call-next-method wob wf)))
-
-
-(defmethod give-up! ((wob ulb-wlan-out-bag))
-  ;; reset wob
-  ;; notifica TED se il firmware e' in grado di notificare NACK
-  (error 'not-implemented))
-
-
-(defmethod handle-send-err! ((wob ulb-wlan-out-bag))
-;  (incf (err-no wob))
-;  (if (< (err-no wob)
-;	 (max-err-no wob))
-;      (out! (owner wob) wob t t)    ; riprova
-;      (give-up! wob)
-  (error 'not-implemented))
-
-
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
 		 (dst-bag bag) (dst-sim ln<->))
-  "wlan -> wifi-link"
-  ;; schedula l'in! per la destinazione
-  (assert (< (mac-err-no wob)
-	     (max-mac-err-no wob))
-	  nil "out! wob: oltrepassato numero massimo di invii!")
+  (with-slots (mac-retry-tmout mac-retry-event) wob
+    ;; `mac-retry-event', riprova quando non arriva MAC-ACK.
+    (setf mac-retry-event (new 'event :tm (+ (gettime!)
+					     mac-retry-tmout)
+			       :desc (format nil "mac-retry! ~a" wob)
+			       :owner-id (id wob)
+			       :fn (lambda ()
+				     (mac-retry! wob))))
+    (schedule! mac-retry-event))
   (handler-bind ((access-temporarily-unavailable #'wait)
 		 (access-denied #'abort)
 		 (no-destination #'abort))
     (call-next-method)))
 
 
-(defmethod remove! ((wob ulb-wlan-out-bag) &key)
-  (let ((qty (length (elements wob))))
-    (if (not (= 1 qty))
-	(error "remove! ulb-wlan-out-bag: ~a elementi invece che solo 1!" qty)
-	(clone (first (elements wob))))))
+(defmethod give-up! ((wob ulb-wlan-out-bag))
+  (when (find :nack (fw wob))
+    (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob)))))
 
+
+(defmethod mac-retry! ((wob ulb-wlan-out-bag))
+  (with-slots (mac-err-no max-mac-err-no) wob
+    ;; un errore in piu'
+    (incf mac-err-no)
+    ;; se abbiamo ancora possibilita' riprova, altrimenti desiste.
+    (if (< mac-err-no
+	   max-mac-err-no)
+	(out! (owner wob) wob t t)    ; riprova
+	(give-up! wob))))
+
+
+(defmethod auto-nack! ((wob ulb-wlan-out-bag))
+  (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
+
+
+(defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag) sendmsg-id)
+  (multiple-value-bind (pkt pkt?)
+      (gethash sendmsg-id (sent us))
+    (when pkt?
+      (schedule! (new 'event :tm (gettime!)
+		      :owner-id (id us)
+		      :desc (format nil "da sent a in! ~a" sendmsg-id)
+		      :fn (lambda ()
+			    (in! us (out us) pkt t t))))))
+  (clean! wob))
 
 
 ;; METODI SPHONE-SIM
