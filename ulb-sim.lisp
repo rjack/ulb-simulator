@@ -93,9 +93,9 @@
 	 0)))   ; gli ack wifi hanno l'id che ackano come pld
 
 
-(defclass rtp-struct (obj)
+(defclass pkt-struct (obj)
   ((tstamp   :initarg :tstamp   :accessor tstamp)
-   (pkt      :initarg :pkt      :accessor pkt)))
+   (pkt      :initarg :pkt      :accessor pkt :type pkt)))
 
 
 ;; Bag generiche
@@ -226,24 +226,24 @@
 		dst-bag dst-sim)
   "ULB-STOCA riceve rtp da sphone, lo mette in una struct e imposta il
    tstamp di arrivo"
-  (let ((rs (new 'rtp-struct :pkt rp :tstamp (gettime!))))
-    (call-next-method us uob rs)))
+  (let ((ps (new 'pkt-struct :pkt rp :tstamp (gettime!))))
+    (call-next-method us uob ps)))
 
 
-(defmethod insert! ((uob ulb-out-fbag) (rs rtp-struct) &key)
-  "Dentro a out le rtp-struct sono in ordine ascendente di timestamp"
+(defmethod insert! ((uob ulb-out-fbag) (ps pkt-struct) &key)
+  "Dentro a out le pkt-struct sono in ordine ascendente di timestamp"
   (call-next-method)
   (! (setf (elements uob)
 	   (stable-sort (elements uob) #'< :key #'tstamp))))
 
 
 (defmethod remove! ((uob ulb-out-fbag) &key)
-  "Se un rtp-struct e' piu' vecchia di 150 ms viene scartata."
-  (let ((rs (call-next-method uob)))
-    (if (>= (- (gettime!) (tstamp rs))
+  "Se un pkt-struct e' piu' vecchia di 150 ms viene scartata."
+  (let ((ps (call-next-method uob)))
+    (if (>= (- (gettime!) (tstamp ps))
 	    (msecs 150))
 	(remove! uob)   ; questo scartato, riprova
-	rs)))
+	ps)))
 
 
 (defmethod out! ((us ulb-stoca-sim) (uob ulb-out-fbag)
@@ -277,13 +277,13 @@
 	ln-bag)))
 
 
-(defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (rs rtp-struct)
+(defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (ps pkt-struct)
 		dst-bag dst-sim)
   "wlan riceve da out-bag: lock, crea la wifi frame e schedula invio."
   (when (not (clean? wob))
-    (error "in! us wob rs t t: wob non e' clean"))
+    (error "in! us wob ps t t: wob non e' clean"))
   (lock! wob)
-  (let ((wf (new 'wifi-frame :pkt (new 'udp-packet :pkt (pkt rs)))))
+  (let ((wf (new 'wifi-frame :pkt (new 'udp-packet :pkt (pkt ps)))))
     (call-next-method us wob wf)
     (schedule! (new 'event :owner-id (id us)
 		    :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
