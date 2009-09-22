@@ -31,30 +31,51 @@
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
 
-(defparameter *a-sp* nil)
-(defparameter *b-sp* nil)
-(defparameter *rtp<->* nil)
+(defparameter *a-sp*  nil)
+(defparameter *lo*    nil)
+(defparameter *ulb*   nil)
+(defparameter *wifi0* nil)
+(defparameter *wifi1* nil)
+(defparameter *ap0*   nil)
+(defparameter *ap1*   nil)
 
 
-(trace in! out! fire! remove! insert! peek dead? flush? schedule! wait access? wakeup!)
+;(trace in! out! fire! remove! insert! peek dead? flush? schedule! wait access? wakeup!)
 
 
 (defun init! (num)
   (setf *clock* 0)
   (setf *evs* (list))
 
-  (setf *a-sp*   (new 'sphone-sim :name "ALICE PHONE"))
-  (setf *b-sp*   (new 'sphone-sim :name "BOB PHONE"))
-  (setf *rtp<->* (new 'ln<-> :name "RTP<->"
-		      :bw (kilobytes-per-second 80)
-		      :delay (msecs 100) :err-rate 0))
+  (setf *a-sp*  (new 'sphone-sim :name "ALICE PHONE"))
 
-  (connect! (out *a-sp*) (a2b *rtp<->*))
-  (connect! (a2b *rtp<->*) (in *b-sp*))
+  (setf *lo*    (new 'ln<-> :name "LO"))
 
-  (connect! (out *b-sp*) (b2a *rtp<->*))
-  (connect! (b2a *rtp<->*) (in *a-sp*))
+  (setf *ulb*   (new 'ulb :name "ULB"))
 
+  (setf *wifi0* (new 'ln<-> :name "WIFI 0"))
+  (setf *wifi1* (new 'ln<-> :name "WIFI 1"))
+
+  (setf *ap0*   (new 'ap-sim :name "AP 0"))
+  (setf *ap1*   (new 'ap-sim :name "AP 1"))
+
+  (connect! (out *a-sp*)   (a2b *lo*))
+  (connect! (b2a *lo*)     (in *a-sp*))
+
+  (connect! (a2b *lo*)     (out *ulb*))
+  (connect! (in *ulb*)     (b2a *lo*))
+
+  (connect! (w0-out *ulb*) (a2b *wifi0*))
+  (connect! (b2a *wifi0*)  (w0-in ulb))
+
+  (connect! (w1-out *ulb*) (a2b *wifi1*))
+  (connect! (b2a *wifi1*)  (w1-in ulb))
+
+  (connect! (a2b *wifi0*)  (fromwifi *ap0*))
+  (connect! (towifi *ap0*) (b2a *wifi0*))
+
+  (connect! (a2b *wifi1*)  (fromwifi *ap1*))
+  (connect! (towifi *ap1*) (b2a *wifi1*))
 
   (dotimes (i num)
     (schedule! (new 'event :tm (msecs i)
