@@ -272,6 +272,49 @@
   nil)
 
 
+;; ACCESS POINT
+
+(defclass ap-sim (sim)
+  ((fromwifi   :initarg fromwifi    :accessor fromwifi :type a2b-fbag)
+   (towifi     :initarg towifi      :accessor towifi   :type b2a-fbag)))
+
+(defmethod setup-new! ((as ap-sim))
+  (set-unbound-slots as
+    (fromwifi (new 'a2b-fbag :owner as))
+    (towifi   (new 'b2a-fbag :owner as)))
+  (call-next-method))
+
+
+;; PROXY
+
+(defclass proxy-eth-in-fbag (in-fbag)
+  nil)
+
+(defclass proxy-eth-out-fbag (out-fbag)
+  nil)
+
+(defclass proxy-sim (sim)
+  ((eth0-in   :initarg :eth0-in     :accessor eth0-in  :type proxy-eth-in-fbag)
+   (eth0-out  :initarg :eth0-out    :accessor eth0-out :type proxy-eth-out-fbag)
+   (eth1-in   :initarg :eth1-in     :accessor eth1-in  :type proxy-eth-in-fbag)
+   (eth1-out  :initarg :eth1-out    :accessor eth1-out :type proxy-eth-out-fbag)
+   (in        :initarg :in          :accessor in       :type in-fbag)
+   (out       :initarg :out         :accessor out      :type out-fbag)))
+
+(defclass proxy-stoca-sim (proxy-sim)
+  nil)
+
+(defmethod setup-new! ((ps proxy-sim))
+  (set-unbound-slots ps
+    (eth0-in  (new 'proxy-eth-in-fbag  :owner ps))
+    (eth0-out (new 'proxy-eth-out-fbag :owner ps))
+    (eth1-in  (new 'proxy-eth-in-fbag  :owner ps))
+    (eth1-out (new 'proxy-eth-out-fbag :owner ps))
+    (in       (new 'in-fbag            :owner ps))
+    (out      (new 'out-fbag           :owner ps)))
+  (call-next-method))
+
+
 ;; METODI ULB-SIM
 
 (defmethod setup-new! ((us ulb-sim))
