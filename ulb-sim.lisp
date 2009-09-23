@@ -465,7 +465,7 @@
 
 
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
-		 (dst-bag bag) (dst-sim ln<->))
+		 dst-bag dst-sim)
   (with-slots (mac-retry-tmout mac-retry-event) wob
     ;; `mac-retry-event', riprova quando non arriva MAC-ACK.
     (setf mac-retry-event (new 'event :tm (+ (gettime!)
