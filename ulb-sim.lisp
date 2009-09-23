@@ -135,7 +135,7 @@
   (call-next-method))
 
 (defclass wifi-frame (pkt)
-  nil)
+  ((seq       :initarg :seq        :accessor seq)))
 
 (defmethod setup-new! ((wf wifi-frame))
   (set-unbound-slots wf
