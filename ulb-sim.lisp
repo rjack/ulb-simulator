@@ -407,7 +407,7 @@
       (schedule! auto-nack-event))
     ;; salvataggio a parte della pkt-struct
     (setf pkt-struct ps))
-  ;; inserimento (insert! fa incapsulamento in wifi frame)
+  ;; inserimento
   (call-next-method)
   ;; Salvo copia pkt-struct in `sent' hash-table
   (let ((ps-copy (clone ps)))
