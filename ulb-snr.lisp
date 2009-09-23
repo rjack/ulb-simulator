@@ -38,48 +38,89 @@
 (defparameter *wifi1* nil)
 (defparameter *ap0*   nil)
 (defparameter *ap1*   nil)
+(defparameter *wire0* nil)
 (defparameter *wire1* nil)
-(defparameter *wire2* nil)
+(defparameter *wireb* nil)
 (defparameter *proxy* nil)
 (defparameter *b-sp*  nil)
 
 
-;(trace in! out! fire! remove! insert! peek dead? flush? schedule! wait access? wakeup!)
+(trace in! out! fire! remove! insert! peek dead? flush? schedule! wait access? wakeup!)
 
 
 (defun init! (num)
   (setf *clock* 0)
   (setf *evs* (list))
 
-  (setf *a-sp*  (new 'sphone-sim :name "ALICE PHONE"))
+  (setf *a-sp*  (new 'sphone-sim      :name "ALICE PHONE"))
 
-  (setf *lo*    (new 'ln<-> :name "LO"))
+  (setf *lo*    (new 'ln<->           :name "LO"))
 
-  (setf *ulb*   (new 'ulb :name "ULB"))
+  (setf *ulb*   (new 'ulb-stoca-sim   :name "ULB-STOCA"))
 
-  (setf *wifi0* (new 'ln<-> :name "WIFI 0"))
-  (setf *wifi1* (new 'ln<-> :name "WIFI 1"))
+  (setf *wifi0* (new 'ln<->           :name "WIFI 0"))
+  (setf *wifi1* (new 'ln<->           :name "WIFI 1"))
 
-  (setf *ap0*   (new 'ap-sim :name "AP 0"))
-  (setf *ap1*   (new 'ap-sim :name "AP 1"))
+  (setf *ap0*   (new 'ap-sim          :name "AP 0"))
+  (setf *ap1*   (new 'ap-sim          :name "AP 1"))
 
+  (setf *wire0* (new 'ln<->           :name "WIRE 0"))
+  (setf *wire1* (new 'ln<->           :name "WIRE 1"))
+
+  (setf *proxy* (new 'proxy-stoca-sim :name "PROXY-STOCA"))
+
+  (setf *wireb* (new 'ln<->           :name "WIRE B"))
+
+  (setf *b-sp*  (new 'sphone-sim      :name "BOB PHONE"))
+
+  ;; a-sp / lo
   (connect! (out *a-sp*)   (a2b *lo*))
   (connect! (b2a *lo*)     (in *a-sp*))
 
+  ;; lo / ulb
   (connect! (a2b *lo*)     (out *ulb*))
   (connect! (in *ulb*)     (b2a *lo*))
 
+  ;; ulb / wifi0
   (connect! (w0-out *ulb*) (a2b *wifi0*))
   (connect! (b2a *wifi0*)  (w0-in *ulb*))
 
+  ;; ulb / wifi1
   (connect! (w1-out *ulb*) (a2b *wifi1*))
   (connect! (b2a *wifi1*)  (w1-in *ulb*))
 
+  ;; wifi0 / ap0
   (connect! (a2b *wifi0*)  (fromwifi *ap0*))
   (connect! (towifi *ap0*) (b2a *wifi0*))
 
+  ;; wifi1 / ap1
   (connect! (a2b *wifi1*)  (fromwifi *ap1*))
   (connect! (towifi *ap1*) (b2a *wifi1*))
+
+  ;; ap0 / wire0
+  (connect! (fromwifi *ap0*) (a2b *wire0*))
+  (connect! (b2a *wire0*) (towifi *ap0*))
+
+  ;; ap1 / wire1
+  (connect! (fromwifi *ap1*) (a2b *wire1*))
+  (connect! (b2a *wire1*) (towifi *ap1*))
+
+  ;; wire0 / proxy
+  (connect! (a2b *wire0*) (eth0-in *proxy*))
+  (connect! (eth0-out *proxy*) (b2a *wire0*))
+
+  ;; wire1 / proxy
+  (connect! (a2b *wire1*) (eth1-in *proxy*))
+  (connect! (eth1-out *proxy*) (b2a *wire1*))
+
+  ;; proxy / wireb
+  (connect! (out *proxy*) (a2b *wireb*))
+  (connect! (b2a *wireb*) (in *proxy*))
+
+  ;; wireb / sp-b
+  (connect! (a2b *wireb*) (in *b-sp*))
+  (connect! (out *b-sp*) (b2a *wireb*))
+
 
   (dotimes (i num)
     (schedule! (new 'event :tm (msecs i)
