@@ -436,7 +436,7 @@
   ;; salva sendmsg-id in pkt-struct
   (setf (sendmsg-id ps)
 	(sendmsg-getid! (owner wob)))
-  ;; `mac-retry-event' e `auto-nack-event'
+  ;; `auto-nack-event'
   (with-slots (fw fw-guess pkt-struct mac-seqnum auto-nack-tmout
 		  auto-nack-event) wob
     ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack-event'
