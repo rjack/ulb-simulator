@@ -128,7 +128,9 @@
 		    :owner-id (id *a-sp*)
 		    :fn (lambda ()
 			  (in! *a-sp* (out *a-sp*)
-			       (new 'rtp-pkt)
+			       (new 'rtp-pkt
+				 :pld (new 'dummy-data-pkt
+					:pld (bytes 700)))
 			       t t))))))
 
 
