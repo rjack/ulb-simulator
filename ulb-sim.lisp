@@ -343,9 +343,9 @@
     (setf pkt-struct nil)
     (setf mac-err-no 0)
     (when (not (null mac-retry-event))
-      (setf (dead? mac-retry-event) t))
+      (cancel! mac-retry-event))
     (when (not (null auto-nack-event))
-      (setf (dead? auto-nack-event) t))))
+      (cancel! auto-nack-event))))
 
 
 (defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
