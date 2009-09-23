@@ -355,7 +355,7 @@
   "ULB-STOCA riceve rtp da sphone, lo mette in una struct e imposta il
    tstamp di arrivo"
   (let ((ps (new 'pkt-struct :pkt rp :tstamp (gettime!))))
-    (call-next-method us uob ps)))
+    (in! us uob ps t t)))
 
 
 (defmethod insert! ((uob ulb-out-fbag) (ps pkt-struct) &key)
@@ -417,7 +417,7 @@
   ;; incremento mac-seqnum.
   (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
 		 :seq (incf (mac-seqnum wob)))))
-    (call-next-method wob wf)))
+    (insert! wob wf)))
 
 
 (defmethod remove! ((wob ulb-wlan-out-bag) &key)
