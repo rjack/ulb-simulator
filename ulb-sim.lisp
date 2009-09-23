@@ -312,6 +312,11 @@
     (eth1-out (new 'proxy-eth-out-fbag :owner ps))
     (in       (new 'in-fbag            :owner ps))
     (out      (new 'out-fbag           :owner ps)))
+  (with-slots (eth0-in eth0-out eth10-in eth1-out eth1-in in out) ps
+    (connect! eth0-in out)
+    (connect! eth1-in out)
+    (connect! in eth0-out)
+    (connect! in eth1-out))
   (call-next-method))
 
 
