@@ -205,8 +205,8 @@
    (mac-seqnum      :initarg :mac-seqnum      :accessor mac-seqnum      :documentation "Numero di sequenza MAC per individuare wifi-frame duplicate")
    (mac-err-no      :initarg :mac-err-no      :accessor mac-err-no      :documentation "Numero attuale di errori di invio a livello MAC")
    (max-mac-err-no  :initarg :mac-max-err-no  :accessor max-mac-err-no  :documentation "Massimo numero di errori d'invio a livello MAC")
-   (mac-retry-tmout :initarg :retry-tmout     :accessor retry-tmout     :documentation "Tempo di attesa prima di riprovare a inviare il frame")
-   (mac-retry-event :initarg :retry-event     :accessor retry-event     :documentation "Riferimento all'evento schedulato per re-invio frame")
+   (mac-retry-tmout :initarg :retry-tmout     :accessor mac-retry-tmout :documentation "Tempo di attesa prima di riprovare a inviare il frame")
+   (mac-retry-event :initarg :retry-event     :accessor mac-retry-event :documentation "Riferimento all'evento schedulato per re-invio frame")
    (auto-nack-tmout :initarg :auto-nack-tmout :accessor auto-nack-tmout :documentation "Tempo di attesa entro cui se non viene notificato nulla si assume NACK")
    (auto-nack-event :initarg :auto-nack-event :accessor auto-nack-event :documentation "Riferimento all'evento per la notifica NACK automatica")
    ;; TODO ragionare su come e quando schedulare l'invio dei PING
@@ -228,13 +228,13 @@
     (mac-seqnum -1)
     (mac-err-no 0)
     (max-mac-err-no 7)             ; valore preso dal paper di ghini
-    (mac-retry-tmout (usecs 3))    ; http://www.air-stream.org.au/ACK_Timeouts dice 2, ma il retry-event verrebbe schedulato prima
+    (mac-retry-tmout (msecs 4))
     (mac-retry-event nil)
-    (auto-nack-tmout (usecs 20))
+    (auto-nack-tmout (msecs 30))
     (auto-nack-event nil)
     (ping-send-tmout nil)
     (ping-send-event nil))
-  ;; TODO chiamare `clean!'
+  (clean! wob)
   (call-next-method))
 
 
@@ -382,7 +382,7 @@
 (defmethod out! ((us ulb-stoca-sim) (uob ulb-out-fbag)
 		 dst-bag dst-sim)
   "out-fbag -> best wlan"
-  (handler-bind ((access-temporarily-unavailable #'abort)
+  (handler-bind ((access-temporarily-unavailable #'wait)
 		 (access-denied #'abort)
 		 (no-destination #'abort))
     ;; TODO scegliere best-wlan in modo piu' rigoroso.
@@ -510,11 +510,13 @@
   (multiple-value-bind (pkt pkt?)
       (gethash sendmsg-id (sent us))
     (when pkt?
+      (remhash sendmsg-id (sent us))
       (schedule! (new 'event :tm (gettime!)
 		      :owner-id (id us)
 		      :desc (format nil "da sent a in! ~a" sendmsg-id)
 		      :fn (lambda ()
-			    (in! us (out us) pkt t t))))))
+			    (in! us (out us) pkt t t)
+			    (unlock! wob))))))
   (clean! wob))
 
 

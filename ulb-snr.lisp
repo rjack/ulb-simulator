@@ -135,4 +135,6 @@
 
 
 (defun run! ()
-  (handler-case (loop :do (fire!))))
+  (handler-case (loop :do (fire!))
+    (no-events ()
+      (format t "Fine~%"))))
