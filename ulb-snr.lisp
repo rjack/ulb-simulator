@@ -54,22 +54,22 @@
 
   (setf *a-sp*  (new 'sphone-sim      :name "ALICE PHONE"))
 
-  (setf *lo*    (new 'ln<->           :name "LO"))
+  (setf *lo*    (new 'ln<->           :name "LO" :delay (msecs 1)))
 
   (setf *ulb*   (new 'ulb-stoca-sim   :name "ULB-STOCA"))
 
-  (setf *wifi0* (new 'ln<->           :name "WIFI 0"))
-  (setf *wifi1* (new 'ln<->           :name "WIFI 1"))
+  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :delay (msecs 1)))
+  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :delay (msecs 1)))
 
   (setf *ap0*   (new 'ap-sim          :name "AP 0"))
   (setf *ap1*   (new 'ap-sim          :name "AP 1"))
 
-  (setf *wire0* (new 'ln<->           :name "WIRE 0"))
-  (setf *wire1* (new 'ln<->           :name "WIRE 1"))
+  (setf *wire0* (new 'ln<->           :name "WIRE 0" :delay (msecs 50)))
+  (setf *wire1* (new 'ln<->           :name "WIRE 1" :delay (msecs 39)))
 
   (setf *proxy* (new 'proxy-stoca-sim :name "PROXY-STOCA"))
 
-  (setf *wireb* (new 'ln<->           :name "WIRE B"))
+  (setf *wireb* (new 'ln<->           :name "WIRE B" :delay (msecs 12)))
 
   (setf *b-sp*  (new 'sphone-sim      :name "BOB PHONE"))
 
