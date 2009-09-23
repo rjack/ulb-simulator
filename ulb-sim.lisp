@@ -68,7 +68,7 @@
 
 (defclass pkt (obj)
   ((hdr-size      :initarg :hdr-size       :accessor hdr-size)
-   (pld           :initarg :pld            :accessor pld  :type pkt)))
+   (pld           :initarg :pld            :accessor pld)))
 
 (defmethod setup-new! ((p pkt))
   (set-unbound-slots p
@@ -90,11 +90,32 @@
   ;; pld e' una stringa, la sua lunghezza e' la dimensione del pld
   nil)
 
+(defmethod setup-new! ((dp data-pkt))
+  (set-unbound-slots dp
+    (pld ""))
+  (call-next-method))
+
 (defmethod clone ((str string))
   (copy-seq str))
 
 (defmethod size ((str string))
   (length str))
+
+
+(defclass dummy-data-pkt (data-pkt)
+  ;; pld e' un numero che rappresenta la dimensione del payload
+  nil)
+
+(defmethod setup-new! ((ddp dummy-data-pkt))
+  (set-unbound-slots ddp
+    (pld 0))
+  (call-next-method))
+
+(defmethod clone ((n number))
+  n)
+
+(defmethod size ((n number))
+  n)
 
 
 (defclass rtp-pkt (pkt)
