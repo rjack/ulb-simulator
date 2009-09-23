@@ -195,7 +195,7 @@
   nil)
 
 
-(defclass ulb-wlan-out-bag (fbag)
+(defclass ulb-wlan-out-bag (bag)
   ((fw              :initarg :fw              :accessor fw              :documentation "Capacita' reali di notifica del firmware: lista contenente :ack, :nack o entrambi")
    ;; wib riceve mac-ack: aggiungo :ack
    ;; wib riceve mac-nack: aggiungo :nack
