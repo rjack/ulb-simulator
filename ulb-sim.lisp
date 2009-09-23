@@ -367,7 +367,7 @@
 
 (defmethod remove! ((uob ulb-out-fbag) &key)
   "Se un pkt-struct e' piu' vecchia di 150 ms viene scartata."
-  (let ((ps (call-next-method uob)))
+  (let ((ps (call-next-method)))
     (if (>= (- (gettime!) (tstamp ps))
 	    (msecs 150))
 	(remove! uob)   ; questo scartato, riprova
