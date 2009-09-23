@@ -370,15 +370,6 @@
 	   (stable-sort (elements uob) #'< :key #'tstamp))))
 
 
-(defmethod remove! ((uob ulb-out-fbag) &key)
-  "Se un pkt-struct e' piu' vecchia di 150 ms viene scartata."
-  (let ((ps (call-next-method)))
-    (if (>= (- (gettime!) (tstamp ps))
-	    (msecs 150))
-	(remove! uob)   ; questo scartato, riprova
-	ps)))
-
-
 (defmethod out! ((us ulb-stoca-sim) (uob ulb-out-fbag)
 		 dst-bag dst-sim)
   "out-fbag -> best wlan"
@@ -436,37 +427,41 @@
 		dst-bag dst-sim)
   (when (not (clean? wob))
     (error "insert! wob ps: wob non e' clean"))
-  ;; un pacchetto alla volta: lock!
-  (lock! wob)
-  ;; salva sendmsg-id in pkt-struct
-  (setf (sendmsg-id ps)
-	(sendmsg-getid! (owner wob)))
-  ;; `auto-nack-event'
-  (with-slots (fw fw-guess pkt-struct mac-seqnum auto-nack-tmout
-		  auto-nack-event) wob
-    ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack-event'
-    (when (not (find :nack fw-guess))
-      (setf auto-nack-event (new 'event :tm (+ (gettime!)
-					       auto-nack-tmout)
-				 :desc (format nil "auto-nack! ~a" wob)
-				 :owner-id (id wob)
-				 :fn (lambda ()
-				       (auto-nack! wob))))
-      (schedule! auto-nack-event))
-    ;; salvataggio a parte della pkt-struct
-    (setf pkt-struct ps))
-  ;; inserimento
-  (call-next-method)
-  ;; Salvo copia pkt-struct in `sent' hash-table
-  (let ((ps-copy (clone ps)))
-    (setf (gethash (sendmsg-id ps-copy) (sent us))
-	  ps-copy))
-  ;; schedula invio del pacchetto al link.
-  (schedule! (new 'event :owner-id (id us)
-		  :desc (format nil "out! ~a ~a ~a ~a" us wob t t)
-		  :tm (gettime!)
-		  :fn (lambda ()
-			(out! us wob t t)))))
+  (if (>= (- (gettime!) (tstamp ps))
+	  (msecs 120))
+      (format t "~a scartato pacchetto ~a scaduto!~%" (gettime!) ps)
+      (progn
+	;; un pacchetto alla volta: lock!
+	(lock! wob)
+	;; salva sendmsg-id in pkt-struct
+	(setf (sendmsg-id ps)
+	      (sendmsg-getid! (owner wob)))
+	;; `auto-nack-event'
+	(with-slots (fw fw-guess pkt-struct mac-seqnum auto-nack-tmout
+			auto-nack-event) wob
+	  ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack-event'
+	  (when (not (find :nack fw-guess))
+	    (setf auto-nack-event (new 'event :tm (+ (gettime!)
+						     auto-nack-tmout)
+				       :desc (format nil "auto-nack! ~a" wob)
+				       :owner-id (id wob)
+				       :fn (lambda ()
+					     (auto-nack! wob))))
+	    (schedule! auto-nack-event))
+	  ;; salvataggio a parte della pkt-struct
+	  (setf pkt-struct ps))
+	;; inserimento
+	(call-next-method)
+	;; Salvo copia pkt-struct in `sent' hash-table
+	(let ((ps-copy (clone ps)))
+	  (setf (gethash (sendmsg-id ps-copy) (sent us))
+		ps-copy))
+	;; schedula invio del pacchetto al link.
+	(schedule! (new 'event :owner-id (id us)
+			:desc (format nil "out! ~a ~a ~a ~a" us wob t t)
+			:tm (gettime!)
+			:fn (lambda ()
+			      (out! us wob t t)))))))
 
 
 (defmethod out! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag)
