@@ -298,14 +298,17 @@
 
 ;; ACCESS POINT
 
+(defclass fromwifi-fbag (fbag)
+  ((mac-seq :initarg :mac-seq :accessor mac-seq :documentation "Ultimo numero di sequenza visto in una wifi-frame, per scartare duplicati")))
+
 (defclass ap-sim (sim)
-  ((fromwifi   :initarg fromwifi    :accessor fromwifi :type a2b-fbag)
+  ((fromwifi   :initarg fromwifi    :accessor fromwifi :type fromwifi-fbag)
    (towifi     :initarg towifi      :accessor towifi   :type b2a-fbag)))
 
 (defmethod setup-new! ((as ap-sim))
   (set-unbound-slots as
-    (fromwifi (new 'a2b-fbag :owner as))
-    (towifi   (new 'b2a-fbag :owner as)))
+    (fromwifi (new 'fromwifi-fbag :owner as :mac-seq -1))
+    (towifi   (new 'b2a-fbag      :owner as)))
   (call-next-method))
 
 
@@ -346,13 +349,28 @@
 
 ;; METODI ACCESS POINT
 
-(defmethod in! ((as ap-sim) (fw a2b-fbag) (wf wifi-frame) dst-bag dst-sim)
-  ;; TODO
-  ;; - mando ack
-  ;; - spacchetto la wifi frame
-  ;; - inpacchetto in ethernet frame?
-  ;; - insert e bona le'.
-  (error 'not-implemented))
+(defmethod in! ((as ap-sim) (fw fromwifi-fbag) (wf wifi-frame)
+		dst-bag dst-sim)
+  ;; A prescindere che sia duplicata o meno, deve ackare la wf
+  ;; arrivata, altrimenti il peer continua a mandarla.
+  (let ((waf (new 'wifi-ack-frame :seq (seq wf))))
+    ;; inserisco wifi-ack-frame nella towifi
+    (schedule! (new 'event :tm (gettime!)
+		    :desc (str "in! ~a ~a ~a t t" as (towifi as) waf)
+		    :fn (lambda ()
+			  (in! as (towifi as) waf t t)))))
+  ;; controllo frame duplicate
+  (if (<= (seq wf)
+	  (mac-seq fw))
+      (my-log "discard-duplicated ~a ~a" as wf)
+      (progn
+	(incf (mac-seq fw))
+	(assert (= (seq wf)
+		   (mac-seq fw))
+		nil "Buco nella numerazione mac-seq!")
+	;; creo ethernet frame e la inserisco.
+	(let ((ef (new 'eth-frame :pld (pld wf))))
+	  (in! as fw ef dst-bag dst-sim)))))
 
 
 ;; METODI ULB-SIM
