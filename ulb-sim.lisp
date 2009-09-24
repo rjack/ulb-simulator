@@ -38,6 +38,8 @@
 (defgeneric auto-nack! (wob))
 (defgeneric sendmsg-getid! (us))
 (defgeneric notify-nack! (us wob id))
+(defgeneric notify-ack! (us wob id))
+(defgeneric mac-confirm! (wob))
 
 
 (defclass pkt-log-entry (obj)
@@ -535,8 +537,18 @@
 
 (defmethod give-up! ((wob ulb-wlan-out-bag))
   (when (find :nack (fw wob))
+    (pushnew :nack (fw-guess wob))
     (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
   (clean! wob))
+
+
+(defmethod mac-confirm! ((wob ulb-wlan-out-bag))
+  "La wlan-in associata ha ricevuto un mac-ack"
+  (cancel! (mac-retry-event wob))
+  (when (find :ack (fw wob))
+    (notify-ack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
+  (clean! wob)
+  (unlock! wob))
 
 
 (defmethod mac-retry! ((wob ulb-wlan-out-bag))
@@ -556,7 +568,6 @@
 
 (defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag)
 			 sendmsg-id)
-  (pushnew :nack (fw-guess wob))
   (multiple-value-bind (pkt pkt?)
       (gethash sendmsg-id (sent us))
     (when pkt?
@@ -565,8 +576,34 @@
 		      :desc (str "da sent a in! ~a" sendmsg-id)
 		      :fn (lambda ()
 			    (in! us (out us) pkt t t)
-			    (unlock! wob))))))
-  (clean! wob))
+			    (unlock! wob)))))))
+
+
+(defmethod notify-ack! ((us ulb-sim) (wob ulb-wlan-out-bag)
+			sendmsg-id)
+  (pushnew :ack (fw-guess wob))
+  (when (not (null (auto-nack-event wob)))
+    (cancel! (auto-nack-event wob)))
+  (remhash sendmsg-id (sent us)))
+
+
+
+;; ULB-WLAN-IN-FBAG
+
+(defmethod in! ((us ulb-stoca-sim) (wib ulb-wlan-in-fbag)
+		(wf wifi-frame) dst-bag dst-sim)
+  "Ulb wlan-in riceve frame da link wireless."
+  ())
+
+
+(defmethod in! ((us ulb-stoca-sim) (wib ulb-wlan-in-fbag)
+		(waf wifi-ack-frame) dst-bag dst-sim)
+  "Ulb wlan-in riceve ack-frame da link wireless."
+  (let ((wob (sibling-wlan wib)))
+    (if (= (seq waf)
+	   (mac-seqnum wob))
+	(mac-confirm! wob)
+	(my-log "stale-mac-ack ~a ~a" wib waf))))
 
 
 ;; METODI SPHONE-SIM
