@@ -535,7 +535,8 @@
 
 (defmethod give-up! ((wob ulb-wlan-out-bag))
   (when (find :nack (fw wob))
-    (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob)))))
+    (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
+  (clean! wob))
 
 
 (defmethod mac-retry! ((wob ulb-wlan-out-bag))
