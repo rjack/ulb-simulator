@@ -320,6 +320,17 @@
   (call-next-method))
 
 
+;; METODI ACCESS POINT
+
+(defmethod in! ((as ap-sim) (fw a2b-fbag) (wf wifi-frame) dst-bag dst-sim)
+  ;; TODO
+  ;; - mando ack
+  ;; - spacchetto la wifi frame
+  ;; - inpacchetto in ethernet frame?
+  ;; - insert e bona le'.
+  (error 'not-implemented))
+
+
 ;; METODI ULB-SIM
 
 (defmethod setup-new! ((us ulb-sim))
