@@ -85,6 +85,9 @@
   (+ (hdr-size p)
      (size (pld p))))
 
+(defmethod print-object ((p pkt) stream)
+  (print-unreadable-object (p stream :type t)
+    (format stream "~a" (pld p))))
 
 (defclass data-pkt (pkt)
   ;; pld e' una stringa, la sua lunghezza e' la dimensione del pld
@@ -134,6 +137,16 @@
     (hdr-size (bytes 8)))
   (call-next-method))
 
+
+(defclass eth-frame (pkt)
+  nil)
+
+(defmethod setup-new! ((ef eth-frame))
+  (set-unbound-slots ef
+    (hdr-size (bytes 18)))
+  (call-next-method))
+
+
 (defclass wifi-frame (pkt)
   ((seq       :initarg :seq        :accessor seq)))
 
@@ -142,7 +155,18 @@
     (hdr-size (bytes 32)))
   (call-next-method))
 
+(defclass wifi-ack-frame (wifi-frame)
+  nil)
 
+(defmethod setup-new! ((waf wifi-ack-frame))
+  (set-unbound-slots waf
+    (pld (new 'dummy-data-pkt :pld (bytes 0))))
+  (call-next-method))
+
+
+(defmethod print-object ((wf wifi-frame) stream)
+  (print-unreadable-object (wf stream :type t)
+    (format stream ":seq ~a ~a" (seq wf) (pld wf))))
 
 (defclass pkt-struct (obj)
   ((tstamp     :initarg :tstamp     :accessor tstamp)
