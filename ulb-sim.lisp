@@ -554,7 +554,9 @@
   (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
 
 
-(defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag) sendmsg-id)
+(defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag)
+			 sendmsg-id)
+  (pushnew :nack (fw-guess wob))
   (multiple-value-bind (pkt pkt?)
       (gethash sendmsg-id (sent us))
     (when pkt?
