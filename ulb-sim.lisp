@@ -482,7 +482,7 @@
     (error "insert! wob ps: wob non e' clean"))
   (if (>= (- (gettime!) (tstamp ps))
 	  (msecs 120))
-      (format t "~a scartato pacchetto ~a scaduto!~%" (gettime!) ps)
+      (my-log "stale-pkt ~a ~a ~a" us wob ps)
       (progn
 	;; un pacchetto alla volta: lock!
 	(lock! wob)
@@ -494,12 +494,12 @@
 			auto-nack-event) wob
 	  ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack-event'
 	  (when (not (find :nack fw-guess))
-	    (setf auto-nack-event (new 'event :tm (+ (gettime!)
-						     auto-nack-tmout)
-				       :desc (format nil "auto-nack! ~a" wob)
-				       :owner-id (id wob)
-				       :fn (lambda ()
-					     (auto-nack! wob))))
+	    (setf auto-nack-event (new 'event
+				    :tm (+ (gettime!)
+					   auto-nack-tmout)
+				    :desc (str "auto-nack! ~a" wob)
+				    :fn (lambda ()
+					  (auto-nack! wob))))
 	    (schedule! auto-nack-event))
 	  ;; salvataggio a parte della pkt-struct
 	  (setf pkt-struct ps))
@@ -510,8 +510,8 @@
 	  (setf (gethash (sendmsg-id ps-copy) (sent us))
 		ps-copy))
 	;; schedula invio del pacchetto al link.
-	(schedule! (new 'event :owner-id (id us)
-			:desc (format nil "out! ~a ~a ~a ~a" us wob t t)
+	(schedule! (new 'event
+			:desc (str "out! ~a ~a ~a ~a" us wob t t)
 			:tm (gettime!)
 			:fn (lambda ()
 			      (out! us wob t t)))))))
@@ -523,8 +523,7 @@
     ;; `mac-retry-event', riprova quando non arriva MAC-ACK.
     (setf mac-retry-event (new 'event :tm (+ (gettime!)
 					     mac-retry-tmout)
-			       :desc (format nil "mac-retry! ~a" wob)
-			       :owner-id (id wob)
+			       :desc (str "mac-retry! ~a" wob)
 			       :fn (lambda ()
 				     (mac-retry! wob))))
     (schedule! mac-retry-event))
@@ -560,8 +559,7 @@
     (when pkt?
       (remhash sendmsg-id (sent us))
       (schedule! (new 'event :tm (gettime!)
-		      :owner-id (id us)
-		      :desc (format nil "da sent a in! ~a" sendmsg-id)
+		      :desc (str "da sent a in! ~a" sendmsg-id)
 		      :fn (lambda ()
 			    (in! us (out us) pkt t t)
 			    (unlock! wob))))))
