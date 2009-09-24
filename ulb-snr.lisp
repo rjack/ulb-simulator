@@ -45,10 +45,10 @@
 (defparameter *b-sp*  nil)
 
 
-(trace in! out! fire! remove! insert! peek dead? flush? schedule! wait access? wakeup!)
+(trace in! out! fire! schedule! wait access? give-up! mac-retry! auto-nack! notify-ack! notify-nack!)
 
 
-(defun init! (num)
+(defun init! ()
   (setf *clock* 0)
   (setf *evs* (list))
 
@@ -58,18 +58,18 @@
 
   (setf *ulb*   (new 'ulb-stoca-sim   :name "ULB-STOCA"))
 
-  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :delay (msecs 1)))
-  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :delay (msecs 1)))
+  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :err-rate 10 :delay (msecs 1) :bw (megabits-per-second 19)))
+  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :err-rate 10 :delay (msecs 1) :bw (megabits-per-second 5)))
 
   (setf *ap0*   (new 'ap-sim          :name "AP 0"))
   (setf *ap1*   (new 'ap-sim          :name "AP 1"))
 
-  (setf *wire0* (new 'ln<->           :name "WIRE 0" :delay (msecs 50)))
-  (setf *wire1* (new 'ln<->           :name "WIRE 1" :delay (msecs 39)))
+  (setf *wire0* (new 'ln<->           :name "WIRE 0" :delay (msecs 50) :bw (megabits-per-second 80)))
+  (setf *wire1* (new 'ln<->           :name "WIRE 1" :delay (msecs 39) :bw (megabits-per-second 50)))
 
   (setf *proxy* (new 'proxy-stoca-sim :name "PROXY-STOCA"))
 
-  (setf *wireb* (new 'ln<->           :name "WIRE B" :delay (msecs 12)))
+  (setf *wireb* (new 'ln<->           :name "WIRE B" :delay (msecs 20) :bw (kilobits-per-second 640)))
 
   (setf *b-sp*  (new 'sphone-sim      :name "BOB PHONE"))
 
@@ -122,19 +122,10 @@
   (connect! (out *b-sp*) (b2a *wireb*))
 
 
-  (dotimes (i num)
-    (schedule! (new 'event :tm (msecs i)
-		    :desc "kickstart"
-		    :owner-id (id *a-sp*)
-		    :fn (lambda ()
-			  (in! *a-sp* (out *a-sp*)
-			       (new 'rtp-pkt
-				 :pld (new 'dummy-data-pkt
-					:pld (bytes 700)))
-			       t t))))))
+  (error "TODO: creare conversazione!"))
 
 
 (defun run! ()
   (handler-case (loop :do (fire!))
     (no-events ()
-      (format t "Fine~%"))))
+      (my-log "Fine"))))
