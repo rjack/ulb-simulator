@@ -58,8 +58,8 @@
 
   (setf *ulb*   (new 'ulb-stoca-sim   :name "ULB-STOCA"))
 
-  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :err-rate 10 :delay (msecs 1) :bw (megabits-per-second 19)))
-  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :err-rate 10 :delay (msecs 1) :bw (megabits-per-second 5)))
+  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 19)))
+  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 5)))
 
   (setf *ap0*   (new 'ap-sim          :name "AP 0"))
   (setf *ap1*   (new 'ap-sim          :name "AP 1"))
@@ -119,10 +119,7 @@
 
   ;; wireb / sp-b
   (connect! (a2b *wireb*) (in *b-sp*))
-  (connect! (out *b-sp*) (b2a *wireb*))
-
-
-  (error "TODO: creare conversazione!"))
+  (connect! (out *b-sp*) (b2a *wireb*)))
 
 
 (defun run! ()
