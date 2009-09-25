@@ -125,6 +125,7 @@
 
 
 (defun run! ()
-  (handler-case (loop :do (fire!))
-    (no-events ()
-      (my-log "Fine"))))
+  (handler-bind ((access-temporarily-unavailable #'wait))
+    (handler-case (loop :do (fire!))
+      (no-events ()
+	(my-log "Fine")))))
