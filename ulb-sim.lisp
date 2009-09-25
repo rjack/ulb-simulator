@@ -182,6 +182,8 @@
 
 (defmethod setup-new! ((ps pkt-struct))
   (set-unbound-slots ps
+    (sendmsg-id "N/A")
+    (tstamp "N/A")
     (pkt (error "pkt-struct: pkt necessario!")))
   (call-next-method))
 
@@ -191,6 +193,11 @@
     (setf (pkt copy)
 	  (clone (pkt ps)))
     copy))
+
+(defmethod print-object ((ps pkt-struct) stream)
+  (print-unreadable-object (ps stream :type t)
+    (format stream ":tstamp ~a :sendmsg-id ~a ~a" (tstamp ps)
+	    (sendmsg-id ps) (pkt ps))))
 
 
 ;; Bag generiche
