@@ -601,11 +601,10 @@
 (defmethod cancel-auto-nack! ((wob ulb-wlan-out-bag) (sendmsg-id number))
   (! (multiple-value-bind (ev ev?)
 	 (gethash sendmsg-id (auto-nack-table wob))
-       (if (not ev?)
-	   (error "cancel-auto-nack!: nessun evento associato a sendmsg-id ~a!" sendmsg-id)
-	   (progn
-	     (cancel! ev)
-	     (remhash sendmsg-id (auto-nack-table wob)))))))
+       (when ev?
+	 (progn
+	   (cancel! ev)
+	   (remhash sendmsg-id (auto-nack-table wob)))))))
 
 
 (defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag)
