@@ -32,15 +32,18 @@
 
 
 (defgeneric clean? (wob))
-(defgeneric clean! (wob))
+(defgeneric allow-next-pkt! (wob))
 (defgeneric mac-retry! (wob))
 (defgeneric mac-give-up! (wob))
-(defgeneric auto-nack! (wob))
+(defgeneric auto-nack! (wob sendmsg-id))
 (defgeneric sendmsg-getid! (us))
-(defgeneric notify-nack! (us wob id))
-(defgeneric notify-ack! (us wob id))
+(defgeneric notify-nack! (us wob sendmsg-id))
+(defgeneric notify-ack! (us wob sendmsg-id))
 (defgeneric mac-confirm! (wob))
+(defgeneric sent->out! (us sendmsg-id))
+(defgeneric sent->discard! (us sendmsg-id))
 (defgeneric inject! (bag obj &key tm))
+(defgeneric cancel-auto-nack! (wob sendmsg-id))
 
 
 (defclass pkt-log-entry (obj)
@@ -235,7 +238,7 @@
    (mac-retry-tmout :initarg :retry-tmout     :accessor mac-retry-tmout :documentation "Tempo di attesa prima di riprovare a inviare il frame")
    (mac-retry-event :initarg :retry-event     :accessor mac-retry-event :documentation "Riferimento all'evento schedulato per re-invio frame")
    (auto-nack-tmout :initarg :auto-nack-tmout :accessor auto-nack-tmout :documentation "Tempo di attesa entro cui se non viene notificato nulla si assume NACK")
-   (auto-nack-event :initarg :auto-nack-event :accessor auto-nack-event :documentation "Riferimento all'evento per la notifica NACK automatica")
+   (auto-nack-table :initarg :auto-nack-table :accessor auto-nack-table :documentation "Tabella hash sendmsg-id -> evento auto-nack.")
    ;; TODO ragionare su come e quando schedulare l'invio dei PING
    ;; Potrebbe essere `best-wlan' che schedula l'invio dei ping alle
    ;; interfacce che non sono state scelte come migliori.
@@ -259,10 +262,9 @@
     (mac-retry-tmout (msecs 4))
     (mac-retry-event nil)
     (auto-nack-tmout (msecs 30))
-    (auto-nack-event nil)
+    (auto-nack-table (make-hash-table))
     (ping-send-tmout nil)
     (ping-send-event nil))
-  (clean! wob)
   (call-next-method))
 
 
@@ -442,27 +444,22 @@
 
 
 (defmethod clean? ((wob ulb-wlan-out-bag))
-  (with-slots (elements pkt-struct mac-err-no mac-retry-event
-			auto-nack-event) wob
+  (with-slots (elements pkt-struct mac-err-no mac-retry-event) wob
     (and (null elements)
 	 (null pkt-struct)
 	 (zerop mac-err-no)
 	 (or (null mac-retry-event)
-	     (dead? mac-retry-event))
-	 (or (null auto-nack-event)
-	     (dead? auto-nack-event)))))
+	     (dead? mac-retry-event)))))
 
 
-(defmethod clean! ((wob ulb-wlan-out-bag))
-  (with-slots (elements pkt-struct mac-err-no mac-retry-event
-			auto-nack-event) wob
-    (setf elements nil)
-    (setf pkt-struct nil)
-    (setf mac-err-no 0)
-    (when (not (null mac-retry-event))
-      (cancel! mac-retry-event))
-    (when (not (null auto-nack-event))
-      (cancel! auto-nack-event))))
+(defmethod allow-next-pkt! ((wob ulb-wlan-out-bag))
+  (! (with-slots (elements pkt-struct mac-err-no mac-retry-event) wob
+       (setf elements nil)
+       (setf pkt-struct nil)
+       (setf mac-err-no 0)
+       (when (not (null mac-retry-event))
+	 (cancel! mac-retry-event))
+       (unlock! wob))))
 
 
 (defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
@@ -493,18 +490,19 @@
 	;; salva sendmsg-id in pkt-struct
 	(setf (sendmsg-id ps)
 	      (sendmsg-getid! (owner wob)))
-	;; `auto-nack-event'
 	(with-slots (fw fw-guess pkt-struct mac-seqnum auto-nack-tmout
-			auto-nack-event) wob
-	  ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack-event'
+			auto-nack-table) wob
+	  ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack'
 	  (when (not (find :nack fw-guess))
-	    (setf auto-nack-event (new 'event
-				    :tm (+ (gettime!)
-					   auto-nack-tmout)
-				    :desc (str "auto-nack! ~a" wob)
-				    :fn (lambda ()
-					  (auto-nack! wob))))
-	    (schedule! auto-nack-event))
+	    (let ((auto-nack-ev (new 'event
+				  :tm (+ (gettime!)
+					 auto-nack-tmout)
+				  :desc (str "auto-nack! ~a ~a" wob (sendmsg-id ps))
+				  :fn (lambda ()
+					(auto-nack! wob (sendmsg-id ps))))))
+	      (setf (gethash (sendmsg-id ps) auto-nack-table)
+		    auto-nack-ev)
+	      (schedule! auto-nack-ev)))
 	  ;; salvataggio a parte della pkt-struct
 	  (setf pkt-struct ps))
 	;; inserimento
@@ -537,18 +535,12 @@
     (call-next-method)))
 
 
-(defmethod mac-give-up! ((wob ulb-wlan-out-bag))
-  (when (find :nack (fw wob))
-    (pushnew :nack (fw-guess wob))
-    (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
-  (clean! wob))
-
-
 (defmethod mac-confirm! ((wob ulb-wlan-out-bag))
   "La wlan-in associata ha ricevuto un mac-ack"
-  (cancel! (mac-retry-event wob))
-  (when (find :ack (fw wob))
-    (notify-ack! (owner wob) wob (sendmsg-id (pkt-struct wob)))))
+  (! (cancel! (mac-retry-event wob))
+     (when (find :ack (fw wob))
+       (notify-ack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
+     (allow-next-pkt! wob)))
 
 
 (defmethod mac-retry! ((wob ulb-wlan-out-bag))
@@ -562,29 +554,59 @@
 	(mac-give-up! wob))))
 
 
-(defmethod auto-nack! ((wob ulb-wlan-out-bag))
-  (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
+(defmethod mac-give-up! ((wob ulb-wlan-out-bag))
+  (! (when (find :nack (fw wob))
+       (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
+     (allow-next-pkt! wob)))
+
+
+(defmethod sent->out! ((us ulb-stoca-sim) (sendmsg-id number))
+  (! (multiple-value-bind (pkt pkt?)
+	 (gethash sendmsg-id (sent us))
+       (when pkt?
+	 (remhash sendmsg-id (sent us))
+	 (schedule! (new 'event :tm (gettime!)
+			 :desc (str "da sent a in! ~a" sendmsg-id)
+			 :fn (lambda ()
+			       (in! us (out us) pkt t t))))))))
+
+
+(defmethod sent->discard! ((us ulb-stoca-sim) (sendmsg-id number))
+  (! (remhash sendmsg-id (sent us))))
+
+
+(defmethod auto-nack! ((wob ulb-wlan-out-bag) (sendmsg-id number))
+  ;; rimuove se' stesso
+  (! (remhash sendmsg-id (auto-nack-table wob))
+     (sent->out! (owner wob) sendmsg-id)))
+
+
+(defmethod cancel-auto-nack! ((wob ulb-wlan-out-bag) (sendmsg-id number))
+  (! (multiple-value-bind (ev ev?)
+	 (gethash sendmsg-id (auto-nack-table wob))
+       (if (not ev?)
+	   (error "cancel-auto-nack!: nessun evento associato a sendmsg-id ~a!" sendmsg-id)
+	   (progn
+	     (cancel! ev)
+	     (remhash sendmsg-id (auto-nack-table wob)))))))
 
 
 (defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag)
 			 sendmsg-id)
-  (multiple-value-bind (pkt pkt?)
-      (gethash sendmsg-id (sent us))
-    (when pkt?
-      (remhash sendmsg-id (sent us))
-      (schedule! (new 'event :tm (gettime!)
-		      :desc (str "da sent a in! ~a" sendmsg-id)
-		      :fn (lambda ()
-			    (in! us (out us) pkt t t)
-			    (unlock! wob)))))))
+  (!
+    ;; TODO: log interfaccia ricevuto nack
+    (pushnew :nack (fw-guess wob))
+    (sent->out! us sendmsg-id)
+    (cancel-auto-nack! wob sendmsg-id)))
 
 
 (defmethod notify-ack! ((us ulb-sim) (wob ulb-wlan-out-bag)
 			sendmsg-id)
-  (pushnew :ack (fw-guess wob))
-  (when (not (null (auto-nack-event wob)))
-    (cancel! (auto-nack-event wob)))
-  (remhash sendmsg-id (sent us)))
+  (!
+    ;; TODO: log interfaccia ricevuto ack
+    (pushnew :ack (fw-guess wob))
+    (sent->discard! us sendmsg-id)
+    (cancel-auto-nack! wob sendmsg-id)))
 
 
 
