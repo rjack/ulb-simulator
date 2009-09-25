@@ -60,14 +60,14 @@
 
   (setf *ulb*   (new 'ulb-stoca-sim   :name "ULB-STOCA"))
 
-  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 19)))
-  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 5)))
+  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 10)))
+  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 10)))
 
   (setf *ap0*   (new 'ap-sim          :name "AP 0"))
   (setf *ap1*   (new 'ap-sim          :name "AP 1"))
 
-  (setf *wire0* (new 'ln<->           :name "WIRE 0" :delay (msecs 50) :bw (megabits-per-second 80)))
-  (setf *wire1* (new 'ln<->           :name "WIRE 1" :delay (msecs 39) :bw (megabits-per-second 50)))
+  (setf *wire0* (new 'ln<->           :name "WIRE 0" :delay (msecs 50) :bw (megabits-per-second 50)))
+  (setf *wire1* (new 'ln<->           :name "WIRE 1" :delay (msecs 50) :bw (megabits-per-second 50)))
 
   (setf *proxy* (new 'proxy-stoca-sim :name "PROXY-STOCA"))
 
