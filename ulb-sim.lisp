@@ -40,6 +40,7 @@
 (defgeneric notify-nack! (us wob id))
 (defgeneric notify-ack! (us wob id))
 (defgeneric mac-confirm! (wob))
+(defgeneric inject! (bag obj &key tm))
 
 
 (defclass pkt-log-entry (obj)
@@ -622,3 +623,13 @@
 (defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-pkt)
 		dst-bag dst-sim)
   (call-next-method))
+
+
+
+;; DEBUG
+
+(defmethod inject! ((b bag) (p pkt) &key (tm (gettime!)))
+  (schedule! (new 'event :tm tm
+		  :desc (str "inject ~a ~a ~a" (owner b) b p)
+		  :fn (lambda ()
+			(in! (owner b) b p t t)))))
