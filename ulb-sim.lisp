@@ -34,7 +34,7 @@
 (defgeneric clean? (wob))
 (defgeneric clean! (wob))
 (defgeneric mac-retry! (wob))
-(defgeneric give-up! (wob))
+(defgeneric mac-give-up! (wob))
 (defgeneric auto-nack! (wob))
 (defgeneric sendmsg-getid! (us))
 (defgeneric notify-nack! (us wob id))
@@ -537,7 +537,7 @@
     (call-next-method)))
 
 
-(defmethod give-up! ((wob ulb-wlan-out-bag))
+(defmethod mac-give-up! ((wob ulb-wlan-out-bag))
   (when (find :nack (fw wob))
     (pushnew :nack (fw-guess wob))
     (notify-nack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
@@ -559,7 +559,7 @@
     (if (< mac-err-no
 	   max-mac-err-no)
 	(out! (owner wob) wob t t)    ; riprova
-	(give-up! wob))))
+	(mac-give-up! wob))))
 
 
 (defmethod auto-nack! ((wob ulb-wlan-out-bag))
