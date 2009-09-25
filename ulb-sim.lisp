@@ -176,17 +176,18 @@
 
 (defclass pkt-struct (obj)
   ((tstamp     :initarg :tstamp     :accessor tstamp)
+   (delivery-no :initarg :delivery-no :accessor delivery-no)
    (sendmsg-id :initarg :sendmsg-id :accessor sendmsg-id)
    (pkt        :initarg :pkt        :accessor pkt :type pkt)))
 
 
 (defmethod setup-new! ((ps pkt-struct))
   (set-unbound-slots ps
+    (delivery-no 0)
     (sendmsg-id "N/A")
     (tstamp "N/A")
     (pkt (error "pkt-struct: pkt necessario!")))
   (call-next-method))
-
 
 (defmethod clone ((ps pkt-struct))
   (let ((copy (call-next-method)))
@@ -504,6 +505,7 @@
 	;; salva sendmsg-id in pkt-struct
 	(setf (sendmsg-id ps)
 	      (sendmsg-getid! (owner wob)))
+	(incf (delivery-no ps))
 	(with-slots (fw fw-guess pkt-struct mac-seqnum auto-nack-tmout
 			auto-nack-table) wob
 	  ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack'
@@ -579,10 +581,12 @@
 	 (gethash sendmsg-id (sent us))
        (when pkt?
 	 (remhash sendmsg-id (sent us))
-	 (schedule! (new 'event :tm (gettime!)
-			 :desc (str "da sent a in! ~a" sendmsg-id)
-			 :fn (lambda ()
-			       (in! us (out us) pkt t t))))))))
+	 (if (= 1 (delivery-no pkt))
+	     (schedule! (new 'event :tm (gettime!)
+			     :desc (str "da sent a in! ~a" sendmsg-id)
+			     :fn (lambda ()
+				   (in! us (out us) pkt t t))))
+	     (my-log "too-much-deliveries ~a" pkt))))))
 
 
 (defmethod sent->discard! ((us ulb-stoca-sim) (sendmsg-id number))
