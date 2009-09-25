@@ -547,9 +547,7 @@
   "La wlan-in associata ha ricevuto un mac-ack"
   (cancel! (mac-retry-event wob))
   (when (find :ack (fw wob))
-    (notify-ack! (owner wob) wob (sendmsg-id (pkt-struct wob))))
-  (clean! wob)
-  (unlock! wob))
+    (notify-ack! (owner wob) wob (sendmsg-id (pkt-struct wob)))))
 
 
 (defmethod mac-retry! ((wob ulb-wlan-out-bag))
