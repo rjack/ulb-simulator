@@ -419,6 +419,14 @@
 
 ;; METODI ULB-STOCA-SIM
 
+(defun choose-best-wlan (wlans)
+  (let ((best (find-if #'(lambda (w)
+			   (not (lock? w))) wlans)))
+    (if (null best)
+	(first wlans)
+	best)))
+
+
 ;; ULB-OUT-FBAG
 
 (defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (rp rtp-pkt)
@@ -442,8 +450,7 @@
   (handler-bind ((access-temporarily-unavailable #'wait)
 		 (access-denied #'abort)
 		 (no-destination #'abort))
-    ;; TODO scegliere best-wlan in modo piu' rigoroso.
-    (let ((best-wlan (random-pick (dests uob))))
+    (let ((best-wlan (choose-best-wlan (dests uob))))
       (call-next-method us uob best-wlan (owner best-wlan)))))
 
 
