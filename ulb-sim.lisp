@@ -339,11 +339,12 @@
 
 ;; PROXY
 
-(defclass proxy-eth-in-fbag (in-fbag)
-  nil)
-
 (defclass proxy-eth-out-fbag (out-fbag)
   nil)
+
+(defclass proxy-eth-in-fbag (in-fbag)
+  ((sibling-eth :initarg :sibling-eth :accessor sibling-eth :type proxy-eth-out-fbag)))
+
 
 (defclass proxy-sim (sim)
   ((eth0-in   :initarg :eth0-in     :accessor eth0-in  :type proxy-eth-in-fbag)
