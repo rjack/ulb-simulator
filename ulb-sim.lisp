@@ -127,6 +127,18 @@
   n)
 
 
+(defclass ping (dummy-data-pkt)
+  ((seq     :initarg :seq    :accessor seq   :type number)
+   (score   :initarg :score  :accessor score :type number)))
+
+(defmethod setup-new! ((p ping))
+  (set-unbound-slots p
+    (seq   (error "ping: seq necessario!"))
+    (score (error "ping: score necessario!"))
+    (pld   (bytes 4)))    ;; supponiamo due short?
+  (call-next-method))
+
+
 (defclass rtp-pkt (pkt)
   nil)
 
