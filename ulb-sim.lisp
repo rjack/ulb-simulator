@@ -399,6 +399,10 @@
 	  (in! as fw ef dst-bag dst-sim)))))
 
 
+;; METODI PROXY
+
+;; TODO
+
 ;; METODI ULB-SIM
 
 (defmethod setup-new! ((us ulb-sim))
@@ -644,7 +648,10 @@
 (defmethod in! ((us ulb-stoca-sim) (wib ulb-wlan-in-fbag)
 		(wf wifi-frame) dst-bag dst-sim)
   "Ulb wlan-in riceve frame da link wireless."
-  ())
+  ;; TODO: e' un PING o e' un RTP?
+  ;; se ping iface-log-ping e discard
+  ;; altrimenti iface-log-rtp, spacchettamento e insert
+  (error 'not-implemented))
 
 
 (defmethod in! ((us ulb-stoca-sim) (wib ulb-wlan-in-fbag)
