@@ -27,6 +27,19 @@
 ;; OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
+;; TODO PING
+;; out parte con 20 ping, numero di sequenza N/A
+;; choose-best-wlan guarda calcola il minore tra i ping-seqnum delle wlan
+;;    se quello minore e' piu' piccolo di 10 allora siamo ancora nel bootstrap
+;;    la wlan col ping-seqnum minore e' la best
+
+;; quando una wlan-out riceve un pacchetto, se ping-seqnum < 10 il
+;; pacchetto DEVE essere un ping.
+
+;; le wlan-out hanno il ping timeout nullo quando ping-seqnum < 10
+;; dopo i primi 10 ping, hanno timeout nullo quando sono le best-wlan
+
+
 (declaim (optimize debug safety (speed 0)))
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
@@ -128,13 +141,13 @@
 
 
 (defclass ping (dummy-data-pkt)
-  ((seq     :initarg :seq    :accessor seq   :type number)
-   (score   :initarg :score  :accessor score :type number)))
+  ((seq     :initarg :seq    :accessor seq)
+   (score   :initarg :score  :accessor score)))
 
 (defmethod setup-new! ((p ping))
   (set-unbound-slots p
-    (seq   (error "ping: seq necessario!"))
-    (score (error "ping: score necessario!"))
+    (seq   "N/A")
+    (score "N/A")
     (pld   (bytes 4)))    ;; supponiamo due short?
   (call-next-method))
 
@@ -446,12 +459,19 @@
 
 ;; ULB-OUT-FBAG
 
-(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (rp rtp-pkt)
+(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (up udp-pkt)
 		dst-bag dst-sim)
-  "ULB-STOCA riceve rtp da sphone, lo mette in una struct e imposta il
-   tstamp di arrivo"
-  (let ((ps (new 'pkt-struct :pkt rp :tstamp (gettime!))))
+  "RTP arriva su UDP da softphone"
+  (let ((ps (new 'pkt-struct
+	      :pkt (the rtp-pkt (pld up))
+	      :tstamp (gettime!))))
     (in! us uob ps t t)))
+
+
+(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (p ping)
+		dst-bag dst-sim)
+  "Ping iniettati in fase di setup, per ping burst."
+  (call-next-method))
 
 
 (defmethod insert! ((uob ulb-out-fbag) (ps pkt-struct) &key)
@@ -502,6 +522,7 @@
 
 
 (defmethod remove! ((wob ulb-wlan-out-bag) &key)
+  ;; TODO: se e' un PING non va clonato ma va proprio rimosso
   (let ((qty (length (elements wob))))
     (if (not (= 1 qty))
 	(error "remove! ulb-wlan-out-bag: ~a elementi invece che solo 1!" qty)
@@ -681,6 +702,12 @@
 		dst-bag dst-sim)
   (call-next-method))
 
+
+;; SETUP
+
+(defun inject-pings! (us)
+  (dotimes (i 20)
+    (inject! (out us) (new 'ping))))
 
 
 ;; DEBUG
