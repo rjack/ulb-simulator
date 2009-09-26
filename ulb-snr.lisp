@@ -47,7 +47,8 @@
 
 (trace in! out! fire! schedule! wait access? mac-give-up! mac-confirm!
        mac-retry! auto-nack! notify-ack! notify-nack! allow-next-pkt!
-       sendmsg-getid! cancel-auto-nack! sent->out! sent->discard!)
+       sendmsg-getid! cancel-auto-nack! sent->out! sent->discard!
+       choose-best-wlan)
 
 
 (defun init! ()

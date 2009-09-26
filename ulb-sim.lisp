@@ -45,6 +45,7 @@
 
 
 (defgeneric clean? (wob))
+(defgeneric score (wob))
 (defgeneric allow-next-pkt! (wob))
 (defgeneric mac-retry! (wob))
 (defgeneric mac-give-up! (wob))
@@ -281,9 +282,10 @@
    ;; TODO ragionare su come e quando schedulare l'invio dei PING
    ;; Potrebbe essere `best-wlan' che schedula l'invio dei ping alle
    ;; interfacce che non sono state scelte come migliori.
+   (ping-burst-len  :initarg :ping-burst-len  :accessor ping-burst-len  :documentation "Numero di ping da mandare all'inizio")
    (ping-seqnum     :initarg :ping-seqnum     :accessor ping-seqnum     :documentation "Numero di sequenza del ping")
-   (ping-send-tmout :initarg :ping-send-tmout :accessor ping-send-tmout :documentation "Tempo di intervallo tra l'invio di un ping e l'altro")
-   (ping-send-event :initarg :ping-send-event :accessor ping-send-event :documentation "Evento di invio del ping")
+   (ping-tmout      :initarg :ping-tmout      :accessor ping-tmout      :documentation "Tempo di intervallo tra l'invio di un ping e l'altro")
+   (ping-event      :initarg :ping-event      :accessor ping-event      :documentation "Evento di invio del ping")
    (pkt-log         :initarg :pkt-log         :accessor pkt-log         :documentation "Log dell'interfaccia, lista di pkt-log-entry.")))
 
 
@@ -293,16 +295,18 @@
 			   (list :nack)
 			   (list :ack :nack))))
     (fw-guess (list))
-    (pkt-struct nil)
-    (mac-seqnum -1)
-    (mac-err-no 0)
-    (max-mac-err-no 7)             ; valore preso dal paper di ghini
+    (pkt-struct      nil)
+    (mac-seqnum      -1)
+    (mac-err-no      0)
+    (max-mac-err-no  7)             ; valore preso dal paper di ghini
     (mac-retry-tmout (msecs 4))
     (mac-retry-event nil)
     (auto-nack-tmout (msecs 30))
     (auto-nack-table (make-hash-table))
-    (ping-send-tmout nil)
-    (ping-send-event nil))
+    (ping-burst-len  10)
+    (ping-seqnum     -1)
+    (ping-tmout      (msecs 300))
+    (ping-event      nil))
   (call-next-method))
 
 
@@ -456,11 +460,16 @@
 ;; METODI ULB-STOCA-SIM
 
 (defun choose-best-wlan (wlans)
-  (let ((best (find-if #'(lambda (w)
-			   (not (lock? w))) wlans)))
-    (if (null best)
-	(first wlans)
-	best)))
+  ;; Prendo quella con ping-seqnum minore tra tutte quelle che non
+  ;; hanno finito il ping-burst.
+  (let ((bursting (remove-if (lambda (w)
+			       (< (ping-seqnum w)
+				  (ping-burst-len w)))
+			     wlans)))
+    (if bursting
+	(reduce #'min bursting :key #'ping-seqnum)
+	(reduce #'min wlans :key #'score))))
+
 
 
 ;; ULB-OUT-FBAG
@@ -482,6 +491,8 @@
 
 (defmethod insert! ((uob ulb-out-fbag) (ps pkt-struct) &key)
   "Dentro a out le pkt-struct sono in ordine ascendente di timestamp"
+  ;; i ping del ping-burst iniziale non passano di qui, ma dal metodo
+  ;; generico.
   (call-next-method)
   (! (setf (elements uob)
 	   (stable-sort (elements uob) #'< :key #'tstamp))))
@@ -498,6 +509,10 @@
 
 
 ;; ULB-WLAN-OUT-BAG
+
+
+(defmethod score ((wob ulb-wlan-out-bag))
+  (error 'not-implemented))
 
 
 (defmethod clean? ((wob ulb-wlan-out-bag))
