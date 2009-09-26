@@ -151,6 +151,11 @@
     (pld   (bytes 4)))    ;; supponiamo due short?
   (call-next-method))
 
+(defmethod print-object ((p ping) stream)
+  (print-unreadable-object (p stream :type t)
+    (format stream ":seq ~a :score ~a ~a"
+	    (seq p) (score p) (pld p))))
+
 
 (defclass rtp-pkt (pkt)
   nil)
