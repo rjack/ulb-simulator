@@ -165,12 +165,13 @@
     (hdr-size (bytes 12)))
   (call-next-method))
 
-(defclass udp-pkt (pkt)
+(defclass udp/ip-pkt (pkt)
   nil)
 
-(defmethod setup-new! ((up udp-pkt))
+(defmethod setup-new! ((up udp/ip-pkt))
   (set-unbound-slots up
-    (hdr-size (bytes 8)))
+    (hdr-size (+ (bytes 20)
+		 (bytes 8))))
   (call-next-method))
 
 
@@ -464,7 +465,7 @@
 
 ;; ULB-OUT-FBAG
 
-(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (up udp-pkt)
+(defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (up udp/ip-pkt)
 		dst-bag dst-sim)
   "RTP arriva su UDP da softphone"
   (let ((ps (new 'pkt-struct
@@ -521,7 +522,7 @@
 (defmethod insert! ((wob ulb-wlan-out-bag) (ps pkt-struct) &key)
   ;; incapsulamento pkt-struct in wifi-frame, impostazione e
   ;; incremento mac-seqnum.
-  (let ((wf (new 'wifi-frame :pld (new 'udp-pkt :pld (pkt ps))
+  (let ((wf (new 'wifi-frame :pld (new 'udp/ip-pkt :pld (pkt ps))
 		 :seq (incf (mac-seqnum wob)))))
     (insert! wob wf)))
 
