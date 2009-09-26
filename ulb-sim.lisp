@@ -696,6 +696,12 @@
 ;; TODO conversazione: lista di eventi in! pregenerata che inietta gli
 ;; rtp-pkt nel softphone.
 
+(defmethod in! ((ss sphone-sim) (ob out-fbag) (rp rtp-pkt)
+		dst-bag dst-sim)
+  (let ((up (new 'udp/ip-pkt :pld rp)))
+    (in! ss ob up dst-bag dst-sim)))
+
+
 (defmethod out! ((ss sphone-sim) (ob out-fbag)
 		 dst-bag dst-sim)
   (handler-bind ((access-temporarily-unavailable #'wait)
