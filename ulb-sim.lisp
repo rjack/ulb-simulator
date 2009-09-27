@@ -28,11 +28,6 @@
 
 
 ;; TODO PING
-;; out parte con 20 ping, numero di sequenza N/A
-;; choose-best-wlan guarda calcola il minore tra i ping-seqnum delle wlan
-;;    se quello minore e' piu' piccolo di 10 allora siamo ancora nel bootstrap
-;;    la wlan col ping-seqnum minore e' la best
-
 ;; quando una wlan-out riceve un pacchetto, se ping-seqnum < 10 il
 ;; pacchetto DEVE essere un ping.
 
@@ -58,6 +53,8 @@
 (defgeneric sent->discard! (us sendmsg-id))
 (defgeneric inject! (bag obj &key tm))
 (defgeneric cancel-auto-nack! (wob sendmsg-id))
+
+(defparameter *max-delivery-no* 2)
 
 
 (defclass pkt-log-entry (obj)
@@ -229,8 +226,8 @@
 
 (defmethod print-object ((ps pkt-struct) stream)
   (print-unreadable-object (ps stream :type t)
-    (format stream ":tstamp ~a :sendmsg-id ~a ~a" (tstamp ps)
-	    (sendmsg-id ps) (pkt ps))))
+    (format stream ":ts ~a :s-id ~a :del-no ~a ~a"
+	    (tstamp ps) (sendmsg-id ps) (delivery-no ps) (pkt ps))))
 
 
 ;; Bag generiche
@@ -291,9 +288,10 @@
 
 (defmethod setup-new! ((wob ulb-wlan-out-bag))
   (set-unbound-slots wob
-    (fw (random-pick (list (list :ack)
-			   (list :nack)
-			   (list :ack :nack))))
+;    (fw (random-pick (list (list :ack)
+;			   (list :nack)
+;			   (list :ack :nack))))
+    (fw (list :ack))
     (fw-guess (list))
     (pkt-struct      nil)
     (mac-seqnum      -1)
@@ -349,21 +347,29 @@
 (defclass fromwifi-fbag (fbag)
   ((mac-seq :initarg :mac-seq :accessor mac-seq :documentation "Ultimo numero di sequenza visto in una wifi-frame, per scartare duplicati")))
 
+(defclass towifi-fbag (fbag)
+  nil)
+
 (defclass ap-sim (sim)
   ((fromwifi   :initarg fromwifi    :accessor fromwifi :type fromwifi-fbag)
-   (towifi     :initarg towifi      :accessor towifi   :type b2a-fbag)))
+   (towifi     :initarg towifi      :accessor towifi   :type towifi-fbag)))
 
 (defmethod setup-new! ((as ap-sim))
   (set-unbound-slots as
     (fromwifi (new 'fromwifi-fbag :owner as :mac-seq -1))
-    (towifi   (new 'b2a-fbag      :owner as)))
+    (towifi   (new 'towifi-fbag   :owner as)))
   (call-next-method))
 
 
 ;; PROXY
 
 (defclass proxy-eth-out-fbag (out-fbag)
-  nil)
+  ((told-score   :initarg :told-score   :accessor told-score)))
+
+(defmethod setup-new! ((eob proxy-eth-out-fbag))
+  (set-unbound-slots eob
+    (told-score 0))
+  (call-next-method))
 
 (defclass proxy-eth-in-fbag (in-fbag)
   ((sibling-eth :initarg :sibling-eth :accessor sibling-eth :type proxy-eth-out-fbag)))
@@ -382,10 +388,10 @@
 
 (defmethod setup-new! ((ps proxy-sim))
   (set-unbound-slots ps
-    (eth0-in  (new 'proxy-eth-in-fbag  :owner ps))
     (eth0-out (new 'proxy-eth-out-fbag :owner ps))
-    (eth1-in  (new 'proxy-eth-in-fbag  :owner ps))
+    (eth0-in  (new 'proxy-eth-in-fbag  :owner ps :sibling-eth (eth0-out ps)))
     (eth1-out (new 'proxy-eth-out-fbag :owner ps))
+    (eth1-in  (new 'proxy-eth-in-fbag  :owner ps :sibling-eth (eth1-out ps)))
     (in       (new 'in-fbag            :owner ps))
     (out      (new 'out-fbag           :owner ps)))
   (with-slots (eth0-in eth0-out eth10-in eth1-out eth1-in in out) ps
@@ -394,6 +400,22 @@
     (connect! in eth0-out)
     (connect! in eth1-out))
   (call-next-method))
+
+
+;; METODI DI LOG INTERFACCIA ULB
+
+
+(defmethod iface-log-ping-recvd ((wob ulb-wlan-out-bag) (p ping))
+  (error 'not-implemented))
+
+(defmethod iface-log-ping-sent ((wob ulb-wlan-out-bag) (p ping))
+  (error 'not-implemented))
+
+(defmethod iface-notified-ack ((wob ulb-wlan-out-bag))
+  (error 'not-implemented))
+
+(defmethod iface-notified-nack ((wob ulb-wlan-out-bag))
+  (error 'not-implemented))
 
 
 ;; METODI ACCESS POINT
@@ -422,9 +444,29 @@
 	  (in! as fw ef dst-bag dst-sim)))))
 
 
+(defmethod in! ((as ap-sim) (tw towifi-fbag) (ef eth-frame)
+		dst-bag dst-sim)
+  (let ((wf (new 'wifi-frame :seq "N/A" :pld (pld ef))))
+    (in! as tw wf dst-bag dst-sim)))
+
+
 ;; METODI PROXY
 
-;; TODO
+(defmethod in! ((ps proxy-stoca-sim) (eib proxy-eth-in-fbag) (ef eth-frame)
+		dst-bag dst-sim)
+  (let ((pkt (pld (pld ef))))
+    (assert (typep pkt '(or ping rtp-pkt)) nil "in! ps eib ef: ne' ping ne' rtp")
+    (in! ps eib pkt dst-bag dst-sim)))
+
+
+(defmethod in! ((ps proxy-stoca-sim) (eib proxy-eth-in-fbag) (p ping)
+		dst-bag dst-sim)
+  (let ((eob (sibling-eth eib)))
+    ;; passa a eob il ping cosi' com'e', pari pari.
+    (in! ps eob (new 'eth-frame :pld (new 'udp/ip-pkt :pld p)) t t)))
+
+
+
 
 ;; METODI ULB-SIM
 
@@ -460,15 +502,16 @@
 ;; METODI ULB-STOCA-SIM
 
 (defun choose-best-wlan (wlans)
-  ;; Prendo quella con ping-seqnum minore tra tutte quelle che non
-  ;; hanno finito il ping-burst.
-  (let ((bursting (remove-if (lambda (w)
-			       (< (ping-seqnum w)
-				  (ping-burst-len w)))
-			     wlans)))
-    (if bursting
-	(reduce #'min bursting :key #'ping-seqnum)
-	(reduce #'min wlans :key #'score))))
+  (reduce (lambda (w1 &optional (w2 nil w2?))
+	    (if (not w2?)
+		w1
+		(with-accessors ((s1 score)) w1
+		  (with-accessors ((s2 score)) w2
+				 (cond ((= s1 s2) (random-pick (list w1 w2)))
+				       ((< s1 s2) w1)
+				       (t w2))))))
+	  wlans))
+
 
 
 
@@ -480,13 +523,14 @@
   (let ((ps (new 'pkt-struct
 	      :pkt (the rtp-pkt (pld up))
 	      :tstamp (gettime!))))
-    (in! us uob ps t t)))
+    (in! us uob ps dst-bag dst-sim)))
 
 
 (defmethod in! ((us ulb-stoca-sim) (uob ulb-out-fbag) (p ping)
 		dst-bag dst-sim)
-  "Ping iniettati in fase di setup, per ping burst."
-  (call-next-method))
+  "Ping iniettati in fase di setup"
+  (let ((ps (new 'pkt-struct :pkt p :tstamp (gettime!))))
+    (in! us uob ps dst-bag dst-sim)))
 
 
 (defmethod insert! ((uob ulb-out-fbag) (ps pkt-struct) &key)
@@ -512,7 +556,10 @@
 
 
 (defmethod score ((wob ulb-wlan-out-bag))
-  (error 'not-implemented))
+  (if (< (ping-seqnum wob) (ping-burst-len wob))
+      (ping-seqnum wob)
+      (+ (ping-burst-len wob)
+	 (random 10))))
 
 
 (defmethod clean? ((wob ulb-wlan-out-bag))
@@ -555,7 +602,7 @@
   (when (not (clean? wob))
     (error "insert! wob ps: wob non e' clean"))
   (if (>= (- (gettime!) (tstamp ps))
-	  (msecs 120))
+	  (msecs 150))
       (my-log "stale-pkt ~a ~a ~a" us wob ps)
       (progn
 	;; un pacchetto alla volta: lock!
@@ -564,6 +611,12 @@
 	(setf (sendmsg-id ps)
 	      (sendmsg-getid! (owner wob)))
 	(incf (delivery-no ps))
+	;; se ping incrementa e imposta il ping seqnum
+	(when (typep (pkt ps) 'ping)
+	  (setf (seq (pkt ps))
+		(incf (ping-seqnum wob)))
+	  (setf (score (pkt ps))
+		(score wob)))
 	(with-slots (fw fw-guess pkt-struct mac-seqnum auto-nack-tmout
 			auto-nack-table) wob
 	  ;; se `fw-guess' non contiene :nack, schedulo un `auto-nack'
@@ -635,16 +688,17 @@
 
 
 (defmethod sent->out! ((us ulb-stoca-sim) (sendmsg-id number))
-  (! (multiple-value-bind (pkt pkt?)
+  (! (multiple-value-bind (ps ps?)
 	 (gethash sendmsg-id (sent us))
-       (when pkt?
+       (when ps?
 	 (remhash sendmsg-id (sent us))
-	 (if (= 1 (delivery-no pkt))
-	     (schedule! (new 'event :tm (gettime!)
-			     :desc (str "da sent a in! ~a" sendmsg-id)
-			     :fn (lambda ()
-				   (in! us (out us) pkt t t))))
-	     (my-log "too-much-deliveries ~a" pkt))))))
+	 (cond ((typep (pkt ps) 'ping) (my-log "don't-resend-ping ~a" ps))
+	       ((< *max-delivery-no* (delivery-no ps))
+		(schedule! (new 'event :tm (gettime!)
+				:desc (str "da sent a in! ~a" sendmsg-id)
+				:fn (lambda ()
+				      (in! us (out us) ps t t)))))
+	       (t (my-log "too-much-deliveries ~a" ps)))))))
 
 
 (defmethod sent->discard! ((us ulb-stoca-sim) (sendmsg-id number))
@@ -690,10 +744,9 @@
 (defmethod in! ((us ulb-stoca-sim) (wib ulb-wlan-in-fbag)
 		(wf wifi-frame) dst-bag dst-sim)
   "Ulb wlan-in riceve frame da link wireless."
-  ;; TODO: e' un PING o e' un RTP?
-  ;; se ping iface-log-ping e discard
-  ;; altrimenti iface-log-rtp, spacchettamento e insert
-  (error 'not-implemented))
+  (let ((pkt (pld (pld wf))))
+    (cond ((typep pkt 'ping) (iface-log-ping-recvd (sibling-wlan wib) pkt))
+	  (t (error "NON DEVE ARRIVARE NULLA CHE NON SIA PING O WIFI-ACK")))))
 
 
 (defmethod in! ((us ulb-stoca-sim) (wib ulb-wlan-in-fbag)
