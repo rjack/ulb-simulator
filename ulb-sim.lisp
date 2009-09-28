@@ -67,7 +67,7 @@
   (set-unbound-slots ple
     (tstamp       (error "pkt-log-entry: tstamp necessario!"))
     (sendmsg-id   (error "pkt-log-entry: sendmsg-id necessario!"))
-    (notification (error "pkt-log-entry: notification necessaria!")))
+    (notification nil))
   (call-next-method))
 
 
@@ -77,8 +77,8 @@
 
 (defmethod setup-new! ((ple ping-log-entry))
   (set-unbound-slots ple
-    (reply-tstamp (error "ping-log-entry: reply-tstamp necessario!"))
-    (ping-seqnum  (error "ping-log-entry: notification necessaria!")))
+    (reply-tstamp nil)
+    (ping-seqnum  (error "ping-log-entry: ping-seqnum necessario!")))
   (call-next-method))
 
 
@@ -406,17 +406,30 @@
 ;; METODI DI LOG INTERFACCIA ULB
 
 
-(defmethod iface-log-ping-recvd ((wob ulb-wlan-out-bag) (p ping))
-  (error 'not-implemented))
+(defmethod iface-log-ping-recvd ((wob ulb-wlan-out-bag) (ps pkt-struct))
+  (let ((entry (find (seq ps) (pkt-log wob) :key #'ping-seqnum)))
+    (if entry
+	(! (setf (reply-tstamp entry) (gettime!))
+	   (when (not (notification entry))
+	     (pushnew :nack (fw-guess wob))))
+	(error "iface-log-ping-recvd: ping-seqnum ~a non trovato!" (seq ps)))))
 
-(defmethod iface-log-ping-sent ((wob ulb-wlan-out-bag) (p ping))
-  (error 'not-implemented))
+(defmethod iface-log-ping-sent ((wob ulb-wlan-out-bag) (ps pkt-struct))
+  (push (new 'ping-log-entry :tstamp (gettime!)
+	     :sendmsg-id (sendmsg-id ps)
+	     :ping-seqnum (seq (pkt ps)))
+	(pkt-log wob)))
 
-(defmethod iface-notified-ack ((wob ulb-wlan-out-bag))
-  (error 'not-implemented))
+(defmethod iface-log-pkt-sent ((wob ulb-wlan-out-bag) (ps pkt-struct))
+  (push (new 'pkt-log-entry :tstamp (gettime!)
+	     :sendmsg-id (sendmsg-id ps))
+	(pkt-log wob)))
 
-(defmethod iface-notified-nack ((wob ulb-wlan-out-bag))
-  (error 'not-implemented))
+(defmethod iface-notified ((wob ulb-wlan-out-bag) (sid number) notif)
+  (let ((entry (find sid (pkt-log wob) :key #'sendmsg-id)))
+    (if entry
+	(! (setf (notification entry) notif))
+	(error "iface-notified-ack: sendmsg-id ~a non trovato nei log!" sid))))
 
 
 ;; METODI ACCESS POINT
