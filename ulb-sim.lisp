@@ -305,7 +305,8 @@
     (ping-burst-len  10)
     (ping-seqnum     -1)
     (ping-tmout      (msecs 300))
-    (ping-event      nil))
+    (ping-event      nil)
+    (pkt-log         (list)))
   (call-next-method))
 
 
@@ -406,13 +407,13 @@
 ;; METODI DI LOG INTERFACCIA ULB
 
 
-(defmethod iface-log-ping-recvd ((wob ulb-wlan-out-bag) (ps pkt-struct))
-  (let ((entry (find (seq ps) (pkt-log wob) :key #'ping-seqnum)))
+(defmethod iface-log-ping-recvd ((wob ulb-wlan-out-bag) (p ping))
+  (let ((entry (find (seq p) (pkt-log wob) :key #'ping-seqnum)))
     (if entry
 	(! (setf (reply-tstamp entry) (gettime!))
 	   (when (not (notification entry))
 	     (pushnew :nack (fw-guess wob))))
-	(error "iface-log-ping-recvd: ping-seqnum ~a non trovato!" (seq ps)))))
+	(error "iface-log-ping-recvd: ping-seqnum ~a non trovato!" (seq p)))))
 
 (defmethod iface-log-ping-sent ((wob ulb-wlan-out-bag) (ps pkt-struct))
   (push (new 'ping-log-entry :tstamp (gettime!)
@@ -604,11 +605,14 @@
 
 
 (defmethod remove! ((wob ulb-wlan-out-bag) &key)
-  ;; TODO: se e' un PING non va clonato ma va proprio rimosso
   (let ((qty (length (elements wob))))
-    (if (not (= 1 qty))
-	(error "remove! ulb-wlan-out-bag: ~a elementi invece che solo 1!" qty)
-	(clone (first (elements wob))))))
+    (let ((wf (if (not (= 1 qty))
+		  (error "remove! ulb-wlan-out-bag: ~a elementi invece che solo 1!" qty)
+		  (clone (first (elements wob)))))
+	  (ps (pkt-struct wob)))
+      (! (cond ((typep (pkt ps) 'ping)    (iface-log-ping-sent wob ps))
+	       ((typep (pkt ps) 'rtp-pkt) (iface-log-pkt-sent wob ps))))
+      wf)))
 
 
 (defmethod in! ((us ulb-stoca-sim) (wob ulb-wlan-out-bag) (ps pkt-struct)
