@@ -27,36 +27,28 @@
 ;; OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
-;; TODO PING
-;; quando una wlan-out riceve un pacchetto, se ping-seqnum < 10 il
-;; pacchetto DEVE essere un ping.
-
-;; le wlan-out hanno il ping timeout nullo quando ping-seqnum < 10
-;; dopo i primi 10 ping, hanno timeout nullo quando sono le best-wlan
-
-
 (declaim (optimize debug safety (speed 0)))
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
 
-(defgeneric iface-log-ping-sent (wob ps))
-(defgeneric iface-log-ping-recv (wob ping))
-(defgeneric iface-log-pkt-sent (wob ps))
+(defgeneric iface-log-ping-sent    (wob ps))
+(defgeneric iface-log-ping-recvd   (wob ping))
+(defgeneric iface-log-pkt-sent     (wob ps))
 (defgeneric iface-log-notification (wob sid notif))
-(defgeneric clean?            (wob))
-(defgeneric score             (wob))
-(defgeneric allow-next-pkt!   (wob))
-(defgeneric mac-retry!        (wob))
-(defgeneric mac-give-up!      (wob))
-(defgeneric auto-nack!        (wob sendmsg-id))
-(defgeneric sendmsg-getid!    (us))
-(defgeneric notify-nack!      (us wob sendmsg-id))
-(defgeneric notify-ack!       (us wob sendmsg-id))
-(defgeneric mac-confirm!      (wob))
-(defgeneric sent->out!        (us sendmsg-id))
-(defgeneric sent->discard!    (us sendmsg-id))
-(defgeneric inject!           (bag obj &key tm))
-(defgeneric cancel-auto-nack! (wob sendmsg-id))
+(defgeneric clean?                 (wob))
+(defgeneric score                  (wob))
+(defgeneric allow-next-pkt!        (wob))
+(defgeneric mac-retry!             (wob))
+(defgeneric mac-give-up!           (wob))
+(defgeneric auto-nack!             (wob sendmsg-id))
+(defgeneric sendmsg-getid!         (us))
+(defgeneric notify-nack!           (us wob sendmsg-id))
+(defgeneric notify-ack!            (us wob sendmsg-id))
+(defgeneric mac-confirm!           (wob))
+(defgeneric sent->out!             (us sendmsg-id))
+(defgeneric sent->discard!         (us sendmsg-id))
+(defgeneric inject!                (bag obj &key tm))
+(defgeneric cancel-auto-nack!      (wob sendmsg-id))
 
 
 (defparameter *max-delivery-no* 2)
