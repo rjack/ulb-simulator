@@ -39,6 +39,10 @@
 ;(declaim (optimize (debug 0) (safety 0) speed))
 
 
+(defgeneric iface-log-ping-sent (wob ps))
+(defgeneric iface-log-ping-recv (wob ping))
+(defgeneric iface-log-pkt-sent (wob ps))
+(defgeneric iface-log-notification (wob sid notif))
 (defgeneric clean?            (wob))
 (defgeneric score             (wob))
 (defgeneric allow-next-pkt!   (wob))
@@ -292,7 +296,7 @@
 ;    (fw (random-pick (list (list :ack)
 ;			   (list :nack)
 ;			   (list :ack :nack))))
-    (fw (list :ack))
+    (fw (list :nack))
     (fw-guess (list))
     (pkt-struct      nil)
     (mac-seqnum      -1)
@@ -426,7 +430,7 @@
 	     :sendmsg-id (sendmsg-id ps))
 	(pkt-log wob)))
 
-(defmethod iface-notified ((wob ulb-wlan-out-bag) (sid number) notif)
+(defmethod iface-log-notification ((wob ulb-wlan-out-bag) (sid number) notif)
   (let ((entry (find sid (pkt-log wob) :key #'sendmsg-id)))
     (if entry
 	(! (setf (notification entry) notif))
@@ -740,20 +744,18 @@
 
 (defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag)
 			 sendmsg-id)
-  (!
-    ;; TODO: log interfaccia ricevuto nack
-    (pushnew :nack (fw-guess wob))
-    (sent->out! us sendmsg-id)
-    (cancel-auto-nack! wob sendmsg-id)))
+  (! (iface-log-notification wob sendmsg-id :nack)
+     (pushnew :nack (fw-guess wob))
+     (sent->out! us sendmsg-id)
+     (cancel-auto-nack! wob sendmsg-id)))
 
 
 (defmethod notify-ack! ((us ulb-sim) (wob ulb-wlan-out-bag)
 			sendmsg-id)
-  (!
-    ;; TODO: log interfaccia ricevuto ack
-    (pushnew :ack (fw-guess wob))
-    (sent->discard! us sendmsg-id)
-    (cancel-auto-nack! wob sendmsg-id)))
+  (! (iface-log-notification wob sendmsg-id :ack)
+     (pushnew :ack (fw-guess wob))
+     (sent->discard! us sendmsg-id)
+     (cancel-auto-nack! wob sendmsg-id)))
 
 
 
