@@ -285,10 +285,9 @@
 
 (defmethod setup-new! ((wob ulb-wlan-out-bag))
   (set-unbound-slots wob
-;    (fw (random-pick (list (list :ack)
-;			   (list :nack)
-;			   (list :ack :nack))))
-    (fw (list :nack))
+    (fw (random-pick (list (list :ack)
+			   (list :nack)
+			   (list :ack :nack))))
     (fw-guess (list))
     (pkt-struct      nil)
     (mac-seqnum      -1)
