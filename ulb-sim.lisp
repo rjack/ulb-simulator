@@ -512,17 +512,15 @@
 ;; METODI ULB-STOCA-SIM
 
 (defun choose-best-wlan (wlans)
-  (reduce (lambda (w1 &optional (w2 nil w2?))
-	    (if (not w2?)
-		w1
-		(with-accessors ((s1 score)) w1
-		  (with-accessors ((s2 score)) w2
-				 (cond ((= s1 s2) (random-pick (list w1 w2)))
-				       ((< s1 s2) w1)
-				       (t w2))))))
-	  wlans))
-
-
+  (flet ((cmp-score (w1 &optional (w2 nil w2?))
+	   (if (not w2?)
+	       w1
+	       (with-accessors ((s1 score)) w1
+		 (with-accessors ((s2 score)) w2
+		   (cond ((= s1 s2) (random-pick (list w1 w2)))
+			 ((< s1 s2) w1)
+			 (t w2)))))))
+    (reduce #'cmp-score wlans)))
 
 
 ;; ULB-OUT-FBAG
