@@ -798,26 +798,16 @@
   (dotimes (i 20)
     (inject! (out us) (new 'ping))))
 
-(defun conversation-evs (starting-at duration ctype)
-  ;; durata: durata totale della conversazione
-  ;; ctype: densita' dei pacchetti in questa durata
-  ;; - :wild-talk discorsi lunghi, pause brevi
-  ;; - :balanced discorsi medi, pause medie
-  ;; - :monosyllabic discorsi brevi, pause lunghe
-  ;; - :silent niente discorsi, una sola lunga pausa
-  (if (eql :silent ctype)
-      (list)
-      (let ((pkt-voice-len (cons (msecs 20) (msecs 40)))
-	    (codec-bw (kilobytes-per-second 7))
-	    (voice-len (cond ((eql ctype :wild-talk)   (cons (secs 7)    (secs 13)))
-			     ((eql ctype :balanced)    (cons (secs 3)    (secs 6)))
-			     ((eql ctype :monsyllabic) (cons (msecs 500) (msecs 1500)))
-			     (t (error "Tipo di conversazione errato ~a" ctype))))
-	    (pause-len (cond ((eql ctype :wild-talk)   (cons (msecs 500) (msecs 1500)))
-			     ((eql ctype :balanced)    (cons (secs 3)    (secs 6)))
-			     ((eql ctype :monsyllabic) (cons (secs 7)    (secs 13)))
-			     (t (error "Tipo di conversazione errato ~a" ctype)))))
-	(error 'not-implemented))))
+(defun schedule-conversation (bag starting-at pkt-no)
+  (let ((pkt-voice-len (msecs 40))
+	(codec-bw (kibibytes-per-second 7)))
+    (dotimes (i pkt-no)
+      (inject! bag (new 'rtp-pkt
+		     :pld (new 'dummy-data-pkt
+			    :pld (* pkt-voice-len
+				    codec-bw)))
+	       :tm (+ starting-at
+		      (* i pkt-voice-len))))))
 
 
 ;; DEBUG
