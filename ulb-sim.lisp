@@ -36,6 +36,7 @@
 (defgeneric iface-log-pkt-sent     (wob ps))
 (defgeneric iface-log-notification (wob sid notif))
 (defgeneric clean?                 (wob))
+(defgeneric penality               (ple))
 (defgeneric score                  (wob))
 (defgeneric allow-next-pkt!        (wob))
 (defgeneric mac-retry!             (wob))
@@ -443,7 +444,7 @@
   ;; controllo frame duplicate
   (if (<= (seq wf)
 	  (mac-seq fw))
-      (my-log "discard-duplicated ~a ~a" as wf)
+      (my-log "discard-duplicated ~a ~a ~a" as fw wf)
       (progn
 	(incf (mac-seq fw))
 	(assert (= (seq wf)
@@ -512,15 +513,13 @@
 ;; METODI ULB-STOCA-SIM
 
 (defun choose-best-wlan (wlans)
-  (flet ((cmp-score (w1 &optional (w2 nil w2?))
-	   (if (not w2?)
-	       w1
-	       (with-accessors ((s1 score)) w1
-		 (with-accessors ((s2 score)) w2
-		   (cond ((= s1 s2) (random-pick (list w1 w2)))
-			 ((< s1 s2) w1)
-			 (t w2)))))))
-    (reduce #'cmp-score wlans)))
+  (let* ((scores (mapcar #'score wlans))
+	 (best (apply #'min scores)))
+    (my-log "score ~{~a~}" scores)
+    (find-if (lambda (w)
+	       (= (score w)
+		  best))
+	     wlans)))
 
 
 ;; ULB-OUT-FBAG
@@ -563,11 +562,32 @@
 ;; ULB-WLAN-OUT-BAG
 
 
+(defmethod penality ((ple pkt-log-entry))
+  (with-slots (tstamp notification) ple
+    (let* ((delay (- (gettime!) tstamp))
+	   ;; k e' una costante che addolcisce la penalita' mano a
+	   ;; mano che il pacchetto analizzato e' vecchio.
+	   (k (cond ((< delay (msecs 40)) 1)
+		    ((< delay (msecs 80)) (/ 1 2))
+		    ((< delay (msecs 120)) (/ 1 4))
+		    (t 0))))
+      (* k (if (or (eql :nack notification)
+		   (and (null notification)
+			(> delay (msecs 40))))
+	       ;; se la notifica e' :nack oppure non e' ancora
+	       ;; arrivata ma sono gia' passsati piu' di 40 ms, allora
+	       ;; conta come :nack
+	       1
+	       ;; altrimenti e' un :ack oppure un pacchetto molto
+	       ;; recente non ancora notificato e non c'e' penalita'
+	       0)))))
+
+
 (defmethod score ((wob ulb-wlan-out-bag))
   (if (< (ping-seqnum wob) (ping-burst-len wob))
       (ping-seqnum wob)
       (+ (ping-burst-len wob)
-	 (random 10))))
+	 (reduce #'+ (pkt-log wob) :key #'penality))))
 
 
 (defmethod clean? ((wob ulb-wlan-out-bag))
@@ -703,7 +723,7 @@
 	 (gethash sendmsg-id (sent us))
        (when ps?
 	 (remhash sendmsg-id (sent us))
-	 (cond ((typep (pkt ps) 'ping) (my-log "don't-resend-ping ~a" ps))
+	 (cond ((typep (pkt ps) 'ping) (my-log "dont-resend-ping ~a" ps))
 	       ((< *max-delivery-no* (delivery-no ps))
 		(schedule! (new 'event :tm (gettime!)
 				:desc (str "da sent a in! ~a" sendmsg-id)
@@ -713,16 +733,19 @@
 
 
 (defmethod sent->discard! ((us ulb-stoca-sim) (sendmsg-id number))
+  (my-log "sent->discard! ~a" sendmsg-id)
   (! (remhash sendmsg-id (sent us))))
 
 
 (defmethod auto-nack! ((wob ulb-wlan-out-bag) (sendmsg-id number))
+  (my-log "auto-nack! ~a ~a" wob sendmsg-id)
   ;; rimuove se' stesso
   (! (remhash sendmsg-id (auto-nack-table wob))
      (sent->out! (owner wob) sendmsg-id)))
 
 
 (defmethod cancel-auto-nack! ((wob ulb-wlan-out-bag) (sendmsg-id number))
+  (my-log "cancel-auto-nack! ~a ~a" wob sendmsg-id)
   (! (multiple-value-bind (ev ev?)
 	 (gethash sendmsg-id (auto-nack-table wob))
        (when ev?
@@ -733,6 +756,7 @@
 
 (defmethod notify-nack! ((us ulb-sim) (wob ulb-wlan-out-bag)
 			 sendmsg-id)
+  (my-log "notify-nack! ~a ~a" wob sendmsg-id)
   (! (iface-log-notification wob sendmsg-id :nack)
      (pushnew :nack (fw-guess wob))
      (sent->out! us sendmsg-id)
@@ -741,6 +765,7 @@
 
 (defmethod notify-ack! ((us ulb-sim) (wob ulb-wlan-out-bag)
 			sendmsg-id)
+  (my-log "notify-ack! ~a ~a" wob sendmsg-id)
   (! (iface-log-notification wob sendmsg-id :ack)
      (pushnew :ack (fw-guess wob))
      (sent->discard! us sendmsg-id)
@@ -789,6 +814,7 @@
 
 (defmethod in! ((ss sphone-sim) (ib in-fbag) (rp rtp-pkt)
 		dst-bag dst-sim)
+  (my-log "sphone in! ~a ~a ~a" ss ib rp)
   (call-next-method))
 
 

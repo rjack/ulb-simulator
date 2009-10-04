@@ -45,11 +45,11 @@
 (defparameter *b-sp*  nil)
 
 
-(trace in! out! fire! schedule! wait access? mac-give-up! mac-confirm!
-       mac-retry! auto-nack! notify-ack! notify-nack! allow-next-pkt!
-       sendmsg-getid! cancel-auto-nack! sent->out! sent->discard!
-       choose-best-wlan)
-
+(defun set-trace ()
+  (trace in! out! fire! schedule! wait access? mac-give-up! mac-confirm!
+	 mac-retry! auto-nack! notify-ack! notify-nack! allow-next-pkt!
+	 sendmsg-getid! cancel-auto-nack! sent->out! sent->discard!
+	 choose-best-wlan))
 
 (defun init! ()
   (setf *clock* 0)
@@ -130,3 +130,11 @@
     (handler-case (loop :do (fire!))
       (no-events ()
 	(my-log "Fine")))))
+
+
+(defun run-pings+conversation ()
+  (inject-pings! *ulb*)
+  (run!)
+  (schedule-conversation (out *a-sp*) (gettime!) 10)
+  ;; TODO schedule errore
+  (run!))
