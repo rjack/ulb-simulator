@@ -286,8 +286,8 @@
 
 (defmethod setup-new! ((wob ulb-wlan-out-bag))
   (set-unbound-slots wob
-    (fw (random-pick (list (list :ack)
-			   (list :nack)
+    (fw (random-pick (list ;(list :ack)
+			   ;(list :nack)
 			   (list :ack :nack))))
     (fw-guess (list))
     (pkt-struct      nil)
@@ -584,7 +584,7 @@
 
 
 (defmethod score ((wob ulb-wlan-out-bag))
-  (if (< (ping-seqnum wob) (ping-burst-len wob))
+  (if (< (ping-seqnum wob) (1- (ping-burst-len wob)))
       (ping-seqnum wob)
       (+ (ping-burst-len wob)
 	 (reduce #'+ (pkt-log wob) :key #'penality))))

@@ -61,8 +61,8 @@
 
   (setf *ulb*   (new 'ulb-stoca-sim   :name "ULB-STOCA"))
 
-  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 10)))
-  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :err-rate 0 :delay (msecs 1) :bw (megabits-per-second 10)))
+  (setf *wifi0* (new 'ln<->           :name "WIFI 0" :err-rate 1 :delay (msecs 1) :bw (megabits-per-second 10)))
+  (setf *wifi1* (new 'ln<->           :name "WIFI 1" :err-rate 5 :delay (msecs 1) :bw (megabits-per-second 10)))
 
   (setf *ap0*   (new 'ap-sim          :name "AP 0"))
   (setf *ap1*   (new 'ap-sim          :name "AP 1"))
@@ -135,6 +135,6 @@
 (defun run-pings+conversation ()
   (inject-pings! *ulb*)
   (run!)
-  (schedule-conversation (out *a-sp*) (gettime!) 10)
+  (schedule-conversation (out *a-sp*) (gettime!) 1000)
   ;; TODO schedule errore
   (run!))
